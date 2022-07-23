@@ -1,0 +1,40 @@
+[package]
+name = "opentelemetry-gcloud-trace"
+version = "0.1.0"
+authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "OpenTelemetry support for Google Cloud Trace"
+homepage = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
+repository = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
+documentation = "https://docs.rs/opentelemetry-gcloud-trace"
+keywords = ["opentelemetry", "metrics", "span", "google", "client", "stack-driver"]
+categories = ["api-bindings"]
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[lib]
+name = "opentelemetry_gcloud_trace"
+path = "src/lib.rs"
+
+[dependencies]
+tracing = "0.1"
+opentelemetry = { version = "0.17" }
+opentelemetry-semantic-conventions = { version = "0.9" }
+gcloud-sdk = { version = "0.17", features = ["google-devtools-cloudtrace-v2"] }
+tonic = { version = "0.7", features = ["tls"] }
+prost-types = "0.10"
+rvstruct = "0.3"
+rsb_derive = "0.5"
+tokio = { version = "1.20", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+
+[dev-dependencies]
+cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
