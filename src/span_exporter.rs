@@ -9,7 +9,7 @@ pub struct GcpCloudTraceExporter {
 }
 
 impl GcpCloudTraceExporter {
-    pub async fn new(google_project_id: &String) -> TraceExportResult<Self> {
+    pub async fn new(google_project_id: &str) -> TraceExportResult<Self> {
         Ok(Self {
             gcp_export_client: GcpCloudTraceExporterClient::new(google_project_id).await?,
         })

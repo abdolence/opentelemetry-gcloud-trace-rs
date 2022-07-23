@@ -18,7 +18,7 @@ pub struct GcpCloudTraceExporterClient {
 }
 
 impl GcpCloudTraceExporterClient {
-    pub async fn new(google_project_id: &String) -> TraceExportResult<Self> {
+    pub async fn new(google_project_id: &str) -> TraceExportResult<Self> {
         let client: GoogleApi<
             google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
                 GoogleAuthMiddleware,
@@ -32,7 +32,7 @@ impl GcpCloudTraceExporterClient {
 
         Ok(Self {
             client,
-            google_project_id: google_project_id.clone(),
+            google_project_id: google_project_id.to_string(),
         })
     }
 
@@ -142,7 +142,7 @@ impl GcpCloudTraceExporterClient {
             time_event: events
                 .iter()
                 .take(MAX_EVENTS)
-                .map(|event| Self::convert_time_event(event))
+                .map(Self::convert_time_event)
                 .collect(),
             dropped_annotations_count: if events.len() > MAX_EVENTS {
                 (events.dropped_count() as usize + events.len() - MAX_EVENTS) as i32
@@ -193,7 +193,7 @@ impl GcpCloudTraceExporterClient {
             link: links
                 .iter()
                 .take(MAX_LINKS)
-                .map(|link| Self::convert_link(link))
+                .map(Self::convert_link)
                 .collect(),
             dropped_links_count: if links.len() > MAX_LINKS {
                 (links.dropped_count() as usize + links.len() - MAX_LINKS) as i32

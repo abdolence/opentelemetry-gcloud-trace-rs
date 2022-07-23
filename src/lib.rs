@@ -32,7 +32,8 @@
 //!          .with_id_generator(RandomIdGenerator::default())
 //!    )
 //! ```
-//!
+
+#![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
 pub mod errors;
 pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
