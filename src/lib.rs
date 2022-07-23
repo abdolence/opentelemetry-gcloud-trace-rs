@@ -1,22 +1,99 @@
-// use opentelemetry::{
-//     global::handle_error,
-//     sdk::{
-//         export::{
-//             trace::{ExportResult, SpanData, SpanExporter},
-//             ExportError,
-//         },
-//         trace::EvictedHashMap,
-//     },
-//     trace::TraceError,
-//     Key, Value,
-// };
-// use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
-// use opentelemetry_semantic_conventions::trace::*;
+//! # OpenTelemetry Google Cloud Trace Exporter
+//!
+//! OpenTelemetry exporter implementation for Google Cloud Trace
+//!
+//! ## Performance
+//!
+//! For optimal performance, a batch exporter is recommended as the simple exporter will export
+//! each span synchronously on drop. You can enable the [`rt-tokio`], [`rt-tokio-current-thread`]
+//! features and specify a runtime on the pipeline to have a batch exporter
+//! configured for you automatically.
+//!
+//! ```toml
+//! [dependencies]
+//! opentelemetry = { version = "*", features = ["rt-tokio"] }
+//! opentelemetry-gcloud-trace = "*"
+//! ```
+//!
+//! ```ignore
+//! let google_project_id = config_env_var("PROJECT_ID")?;
+//! let tracer: opentelemetry::sdk::trace::Tracer = GcpCloudTraceExporterBuilder::new(google_project_id)
+//!   .install_batch(opentelemetry::runtime::Tokio)
+//!   .await?;
+//! ```
+//! ## Configuration
+//!
+//! You can specify trace configuration using `with_trace_config`:
+//!
+//! ```ignore
+//!    GcpCloudTraceExporterBuilder::new(google_project_id).with_trace_config(
+//!       trace::config()
+//!          .with_sampler(Sampler::AlwaysOn)
+//!          .with_id_generator(RandomIdGenerator::default())
+//!    )
+//! ```
+//!
 
 pub mod errors;
-mod trace_exporter;
+pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 
-use crate::errors::GcloudTraceError;
-pub use trace_exporter::*;
+mod google_trace_exporter_client;
+mod span_exporter;
 
-pub type TraceExportResult<E> = Result<E, GcloudTraceError>;
+use opentelemetry::trace::TracerProvider;
+pub use span_exporter::GcpCloudTraceExporter;
+
+use rsb_derive::*;
+
+#[derive(Debug, Builder)]
+pub struct GcpCloudTraceExporterBuilder {
+    pub google_project_id: String,
+    pub trace_config: Option<opentelemetry::sdk::trace::Config>,
+}
+
+impl GcpCloudTraceExporterBuilder {
+    pub async fn install_simple(
+        self,
+    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+        let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
+
+        let mut provider_builder =
+            opentelemetry::sdk::trace::TracerProvider::builder().with_simple_exporter(exporter);
+        provider_builder = if let Some(config) = self.trace_config {
+            provider_builder.with_config(config)
+        } else {
+            provider_builder
+        };
+        let provider = provider_builder.build();
+        let tracer = provider.versioned_tracer(
+            "opentelemetry-gcloud",
+            Some(env!("CARGO_PKG_VERSION")),
+            None,
+        );
+        let _ = opentelemetry::global::set_tracer_provider(provider);
+        Ok(tracer)
+    }
+
+    pub async fn install_batch<R: opentelemetry::sdk::trace::TraceRuntime>(
+        self,
+        runtime: R,
+    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+        let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
+
+        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
+            .with_batch_exporter(exporter, runtime);
+        provider_builder = if let Some(config) = self.trace_config {
+            provider_builder.with_config(config)
+        } else {
+            provider_builder
+        };
+        let provider = provider_builder.build();
+        let tracer = provider.versioned_tracer(
+            "opentelemetry-gcloud",
+            Some(env!("CARGO_PKG_VERSION")),
+            None,
+        );
+        let _ = opentelemetry::global::set_tracer_provider(provider);
+        Ok(tracer)
+    }
+}

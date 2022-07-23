@@ -3,11 +3,12 @@ use gcloud_sdk::google::devtools::cloudtrace::v2::{
     attribute_value as gcp_attribute_value, span as gspan, AttributeValue as GcpAttributeValue,
     BatchWriteSpansRequest, Span as GcpSpan, TruncatableString,
 };
+use gcloud_sdk::google::rpc::{Code as GcpStatusCode, Status as GcpStatus};
 use gcloud_sdk::*;
 use opentelemetry::sdk::export::trace::SpanData;
 use std::ops::Deref;
 
-pub struct GcpCloudTraceExporter {
+pub struct GcpCloudTraceExporterClient {
     client: GoogleApi<
         google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
             GoogleAuthMiddleware,
@@ -16,7 +17,7 @@ pub struct GcpCloudTraceExporter {
     google_project_id: String,
 }
 
-impl GcpCloudTraceExporter {
+impl GcpCloudTraceExporterClient {
     pub async fn new(google_project_id: &String) -> TraceExportResult<Self> {
         let client: GoogleApi<
             google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
@@ -35,7 +36,7 @@ impl GcpCloudTraceExporter {
         })
     }
 
-    async fn export_batch(&self, batch: Vec<SpanData>) -> TraceExportResult<()> {
+    pub async fn export_batch(&self, batch: Vec<SpanData>) -> TraceExportResult<()> {
         let mut client = self.client.get();
 
         let batch_request = BatchWriteSpansRequest {
@@ -57,6 +58,7 @@ impl GcpCloudTraceExporter {
                     attributes: Some(Self::convert_span_attrs(&span.attributes)),
                     time_events: Some(Self::convert_time_events(&span.events)),
                     links: Some(Self::convert_links(&span.links)),
+                    status: Self::convert_status(&span),
                     ..GcpSpan::default()
                 })
                 .collect(),
@@ -120,7 +122,7 @@ impl GcpCloudTraceExporter {
                     Self::truncatable_string(value, MAX_STR_LEN),
                 ),
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
-                opentelemetry::Value::Array(value) => {
+                opentelemetry::Value::Array(_) => {
                     // Arrays aren't supported yet
                     gcp_attribute_value::Value::StringValue(Self::truncatable_string(
                         "array[...]",
@@ -185,5 +187,44 @@ impl GcpCloudTraceExporter {
     fn convert_links(
         links: &opentelemetry::sdk::trace::EvictedQueue<opentelemetry::trace::Link>,
     ) -> gspan::Links {
+        const MAX_LINKS: usize = 128;
+
+        gspan::Links {
+            link: links
+                .iter()
+                .take(MAX_LINKS)
+                .map(|link| Self::convert_link(link))
+                .collect(),
+            dropped_links_count: if links.len() > MAX_LINKS {
+                (links.dropped_count() as usize + links.len() - MAX_LINKS) as i32
+            } else {
+                links.dropped_count() as i32
+            },
+            ..gspan::Links::default()
+        }
+    }
+
+    fn convert_link(link: &opentelemetry::trace::Link) -> gspan::Link {
+        gspan::Link {
+            trace_id: link.span_context().trace_id().to_string(),
+            span_id: link.span_context().span_id().to_string(),
+            ..gspan::Link::default()
+        }
+    }
+
+    fn convert_status(span: &SpanData) -> Option<GcpStatus> {
+        match span.status_code {
+            opentelemetry::trace::StatusCode::Unset => None,
+            opentelemetry::trace::StatusCode::Ok => Some(GcpStatus {
+                code: GcpStatusCode::Ok.into(),
+                message: span.status_message.to_string(),
+                ..GcpStatus::default()
+            }),
+            opentelemetry::trace::StatusCode::Error => Some(GcpStatus {
+                code: GcpStatusCode::Unavailable.into(),
+                message: span.status_message.to_string(),
+                ..GcpStatus::default()
+            }),
+        }
     }
 }

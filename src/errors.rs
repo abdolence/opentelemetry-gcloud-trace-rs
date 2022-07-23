@@ -1,4 +1,5 @@
 use gcloud_sdk::error::Error;
+use opentelemetry::sdk::export::ExportError;
 use rsb_derive::*;
 
 pub type BoxedError = Box<dyn std::error::Error + Send + Sync>;
@@ -66,5 +67,11 @@ impl From<gcloud_sdk::error::Error> for GcloudTraceError {
 impl From<tonic::Status> for GcloudTraceError {
     fn from(status: tonic::Status) -> Self {
         GcloudTraceError::NetworkError(GcloudTraceNetworkError::new(format!("{}", status)))
+    }
+}
+
+impl ExportError for GcloudTraceError {
+    fn exporter_name(&self) -> &'static str {
+        "GoogleCloudTraceExporter"
     }
 }
