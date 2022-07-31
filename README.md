@@ -9,7 +9,7 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.1"
+opentelemetry-gcloud-trace = "0.2"
 ```
 
 Example code:
