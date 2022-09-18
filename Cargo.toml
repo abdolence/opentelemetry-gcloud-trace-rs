@@ -1,6 +1,6 @@
 [package]
 name = "opentelemetry-gcloud-trace"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -22,9 +22,9 @@ path = "src/lib.rs"
 
 [dependencies]
 tracing = "0.1"
-opentelemetry = { version = "0.17" }
-opentelemetry-semantic-conventions = { version = "0.9" }
-gcloud-sdk = { version = "0.18", features = ["google-devtools-cloudtrace-v2"] }
+opentelemetry = { version = "0.18" }
+opentelemetry-semantic-conventions = { version = "0.10" }
+gcloud-sdk = { version = "0.18.6", features = ["google-devtools-cloudtrace-v2"] }
 tonic = { version = "0.8", features = ["tls"] }
 prost-types = "0.11"
 rvstruct = "0.3"
@@ -37,10 +37,8 @@ async-trait = "0.1"
 
 
 [dev-dependencies]
-opentelemetry = { version = "0.17", features = ["rt-tokio"] }
+opentelemetry = { version = "0.18", features = ["rt-tokio"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = "0.17"
-
-[build-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
+tracing-opentelemetry = { version = "0.16", git="https://github.com/tokio-rs/tracing" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
