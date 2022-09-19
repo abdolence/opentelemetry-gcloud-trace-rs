@@ -14,10 +14,10 @@ opentelemetry-gcloud-trace = "0.3"
 
 ## Compatibility matrix
 
-| opentelemetry version | opentelemetry-gcloud-trace version |
-|-----------------------|------------------------------------|
-| 0.18                  | 0.3                                |
-| 0.17                  | 0.2                                |
+| opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry |
+|------------------------------------|-----------------------|-----------------------|
+| 0.3                                | 0.18                  | 0.18                  |
+| 0.2                                | 0.17                  | 0.17                  |
 
 
 Example code:

@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .await?;
 
     // Create a tracing layer with the configured tracer
-    let telemetry = tracing_opentelemetry::subscriber().with_tracer(tracer);
+    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
     // Use the tracing subscriber `Registry`, or any other subscriber
     // that impls `LookupSpan`

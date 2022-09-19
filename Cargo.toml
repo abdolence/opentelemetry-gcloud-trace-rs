@@ -40,5 +40,5 @@ async-trait = "0.1"
 opentelemetry = { version = "0.18", features = ["rt-tokio"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
-tracing-opentelemetry = { version = "0.16", git="https://github.com/tokio-rs/tracing" }
+tracing-opentelemetry = { version = "0.18" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
