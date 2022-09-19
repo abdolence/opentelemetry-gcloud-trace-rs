@@ -9,8 +9,16 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.2"
+opentelemetry-gcloud-trace = "0.3"
 ```
+
+## Compatibility matrix
+
+| opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry |
+|------------------------------------|-----------------------|-----------------------|
+| 0.3                                | 0.18                  | 0.18                  |
+| 0.2                                | 0.17                  | 0.17                  |
+
 
 Example code:
 ```rust
@@ -23,7 +31,7 @@ let google_project_id = config_env_var("PROJECT_ID")?;
 
 let tracer: opentelemetry::sdk::trace::Tracer = 
   GcpCloudTraceExporterBuilder::new(google_project_id)
-    .install_simple()
+    .install_simple() // use install_batch for production/performance reasons
     .await?;
 
 tracer.in_span("doing_work_parent", |cx| {

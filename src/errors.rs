@@ -42,7 +42,7 @@ impl std::fmt::Display for GcloudTraceSystemError {
 
 impl std::error::Error for GcloudTraceSystemError {}
 
-#[derive(Debug, PartialEq, Clone, Builder)]
+#[derive(Debug, Eq, PartialEq, Clone, Builder)]
 pub struct GcloudTraceNetworkError {
     pub message: String,
 }

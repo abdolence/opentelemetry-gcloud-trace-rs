@@ -8,6 +8,7 @@ use gcloud_sdk::*;
 use opentelemetry::sdk::export::trace::SpanData;
 use std::ops::Deref;
 
+#[derive(Clone)]
 pub struct GcpCloudTraceExporterClient {
     client: GoogleApi<
         google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
@@ -119,7 +120,7 @@ impl GcpCloudTraceExporterClient {
                     Self::truncatable_string(format!("{:.2}", value).as_str(), MAX_STR_LEN),
                 ),
                 opentelemetry::Value::String(value) => gcp_attribute_value::Value::StringValue(
-                    Self::truncatable_string(value, MAX_STR_LEN),
+                    Self::truncatable_string(value.as_str(), MAX_STR_LEN),
                 ),
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
                 opentelemetry::Value::Array(_) => {
@@ -206,23 +207,22 @@ impl GcpCloudTraceExporterClient {
 
     fn convert_link(link: &opentelemetry::trace::Link) -> gspan::Link {
         gspan::Link {
-            trace_id: link.span_context().trace_id().to_string(),
-            span_id: link.span_context().span_id().to_string(),
+            trace_id: link.span_context.trace_id().to_string(),
+            span_id: link.span_context.span_id().to_string(),
             ..gspan::Link::default()
         }
     }
 
     fn convert_status(span: &SpanData) -> Option<GcpStatus> {
-        match span.status_code {
-            opentelemetry::trace::StatusCode::Unset => None,
-            opentelemetry::trace::StatusCode::Ok => Some(GcpStatus {
+        match span.status {
+            opentelemetry::trace::Status::Unset => None,
+            opentelemetry::trace::Status::Ok => Some(GcpStatus {
                 code: GcpStatusCode::Ok.into(),
-                message: span.status_message.to_string(),
                 ..GcpStatus::default()
             }),
-            opentelemetry::trace::StatusCode::Error => Some(GcpStatus {
+            opentelemetry::trace::Status::Error { ref description } => Some(GcpStatus {
                 code: GcpStatusCode::Unavailable.into(),
-                message: span.status_message.to_string(),
+                message: description.to_string(),
                 ..GcpStatus::default()
             }),
         }
