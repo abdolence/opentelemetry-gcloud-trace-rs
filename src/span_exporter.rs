@@ -18,7 +18,7 @@ impl GcpCloudTraceExporter {
     }
 
     pub async fn for_default_project_id() -> TraceExportResult<Self> {
-        let detected_project_id = GoogleEnvironment::detect_google_project_id().await.ok_or(
+        let detected_project_id = GoogleEnvironment::detect_google_project_id().await.ok_or_else(||
             GcloudTraceError::SystemError(
                 GcloudTraceSystemError::new(
                     "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string()
