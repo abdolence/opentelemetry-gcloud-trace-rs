@@ -1,6 +1,8 @@
+use crate::errors::*;
 use crate::google_trace_exporter_client::GcpCloudTraceExporterClient;
 use crate::TraceExportResult;
 use futures_util::future::{BoxFuture, TryFutureExt};
+use gcloud_sdk::GoogleEnvironment;
 use opentelemetry::sdk::export::trace::{ExportResult, SpanData, SpanExporter};
 use std::fmt::Formatter;
 
@@ -13,6 +15,17 @@ impl GcpCloudTraceExporter {
         Ok(Self {
             gcp_export_client: GcpCloudTraceExporterClient::new(google_project_id).await?,
         })
+    }
+
+    pub async fn for_default_project_id() -> TraceExportResult<Self> {
+        let detected_project_id = GoogleEnvironment::detect_google_project_id().await.ok_or(
+            GcloudTraceError::SystemError(
+                GcloudTraceSystemError::new(
+                    "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string()
+                )
+            )
+        )?;
+        Self::new(detected_project_id.as_str()).await
     }
 }
 

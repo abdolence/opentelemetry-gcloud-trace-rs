@@ -10,10 +10,9 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id = config_env_var("PROJECT_ID")?;
-
     let tracer: opentelemetry::sdk::trace::Tracer =
-        GcpCloudTraceExporterBuilder::new(google_project_id)
+        GcpCloudTraceExporterBuilder::for_default_project_id()
+            .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
             .install_batch(opentelemetry::runtime::Tokio)
             .await?;
 

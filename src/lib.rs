@@ -53,6 +53,17 @@ pub struct GcpCloudTraceExporterBuilder {
 }
 
 impl GcpCloudTraceExporterBuilder {
+    pub async fn for_default_project_id() -> TraceExportResult<Self> {
+        let detected_project_id = gcloud_sdk::GoogleEnvironment::detect_google_project_id().await.ok_or(
+            crate::errors::GcloudTraceError::SystemError(
+                crate::errors::GcloudTraceSystemError::new(
+                    "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string()
+                )
+            )
+        )?;
+        Ok(Self::new(detected_project_id))
+    }
+
     pub async fn install_simple(
         self,
     ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
