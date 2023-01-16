@@ -29,7 +29,7 @@ tonic = { version = "0.8", features = ["tls"] }
 prost-types = "0.11"
 rvstruct = "0.3"
 rsb_derive = "0.5"
-tokio = { version = "1.22", features = ["full"] }
+tokio = { version = "1.24", features = ["full"] }
 tokio-stream = "0.1"
 futures = "0.3"
 futures-util = "0.3"
