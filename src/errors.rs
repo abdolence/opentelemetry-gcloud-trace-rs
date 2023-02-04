@@ -58,7 +58,7 @@ impl std::error::Error for GcloudTraceNetworkError {}
 impl From<gcloud_sdk::error::Error> for GcloudTraceError {
     fn from(gcloud_error: Error) -> Self {
         GcloudTraceError::SystemError(
-            GcloudTraceSystemError::new(format!("Google SDK error: {}", gcloud_error))
+            GcloudTraceSystemError::new(format!("Google SDK error: {gcloud_error}"))
                 .with_root_cause(Box::new(gcloud_error)),
         )
     }
@@ -66,7 +66,7 @@ impl From<gcloud_sdk::error::Error> for GcloudTraceError {
 
 impl From<tonic::Status> for GcloudTraceError {
     fn from(status: tonic::Status) -> Self {
-        GcloudTraceError::NetworkError(GcloudTraceNetworkError::new(format!("{}", status)))
+        GcloudTraceError::NetworkError(GcloudTraceNetworkError::new(format!("{status}")))
     }
 }
 

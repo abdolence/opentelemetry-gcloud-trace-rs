@@ -117,7 +117,7 @@ impl GcpCloudTraceExporterClient {
             value: Some(match attr_value {
                 opentelemetry::Value::I64(value) => gcp_attribute_value::Value::IntValue(*value),
                 opentelemetry::Value::F64(value) => gcp_attribute_value::Value::StringValue(
-                    Self::truncatable_string(format!("{:.2}", value).as_str(), MAX_STR_LEN),
+                    Self::truncatable_string(format!("{value:.2}").as_str(), MAX_STR_LEN),
                 ),
                 opentelemetry::Value::String(value) => gcp_attribute_value::Value::StringValue(
                     Self::truncatable_string(value.as_str(), MAX_STR_LEN),
