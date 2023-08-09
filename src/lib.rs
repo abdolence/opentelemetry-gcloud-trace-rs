@@ -80,13 +80,17 @@ impl GcpCloudTraceExporterBuilder {
         let tracer = provider.versioned_tracer(
             "opentelemetry-gcloud",
             Some(env!("CARGO_PKG_VERSION")),
+            Some("https://opentelemetry.io/schemas/1.23.0"),
             None,
         );
         let _ = opentelemetry::global::set_tracer_provider(provider);
         Ok(tracer)
     }
 
-    pub async fn install_batch<R: opentelemetry::sdk::trace::TraceRuntime>(
+    pub async fn install_batch<
+        R: opentelemetry::sdk::runtime::Runtime
+            + opentelemetry::runtime::RuntimeChannel<opentelemetry::sdk::trace::BatchMessage>,
+    >(
         self,
         runtime: R,
     ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
@@ -103,6 +107,7 @@ impl GcpCloudTraceExporterBuilder {
         let tracer = provider.versioned_tracer(
             "opentelemetry-gcloud",
             Some(env!("CARGO_PKG_VERSION")),
+            Some("https://opentelemetry.io/schemas/1.23.0"),
             None,
         );
         let _ = opentelemetry::global::set_tracer_provider(provider);

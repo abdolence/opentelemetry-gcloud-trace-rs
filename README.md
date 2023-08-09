@@ -9,20 +9,20 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.5"
+opentelemetry-gcloud-trace = "0.6"
 ```
 
 ## Compatibility matrix
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.6                                | 0.20                  | 0.20                  | 0.20       |
 | 0.5                                | 0.19                  | 0.19                  | 0.20       |
 | 0.4                                | 0.18                  | 0.18                  | 0.19       |
-| 0.3                                | 0.18                  | 0.18                  | 0.18       |
-| 0.2                                | 0.17                  | 0.17                  | 0.18       |
 
 
-Example code:
+Example:
+
 ```rust
 
 use opentelemetry::KeyValue;
@@ -39,6 +39,7 @@ tracer.in_span("doing_work_parent", |cx| {
 });
 
 ```
+This is a basic configuration, don't recommended for prod. See [Performance](#performance) section for prod config.
 
 All examples available at [examples](examples) directory.
 
