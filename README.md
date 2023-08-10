@@ -39,7 +39,7 @@ tracer.in_span("doing_work_parent", |cx| {
 });
 
 ```
-This is a basic configuration, don't recommended for prod. See [Performance](#performance) section for prod config.
+This is a basic configuration, not recommended for prod systems. See the [Performance](#performance) section for prod config.
 
 All examples available at [examples](examples) directory.
 
