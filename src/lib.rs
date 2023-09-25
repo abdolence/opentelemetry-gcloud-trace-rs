@@ -69,8 +69,8 @@ impl GcpCloudTraceExporterBuilder {
     ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
         let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
 
-        let mut provider_builder =
-            opentelemetry::sdk::trace::TracerProvider::builder().with_simple_exporter(exporter);
+        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
+            .with_batch_exporter(exporter, opentelemetry::runtime::Tokio);
         provider_builder = if let Some(config) = self.trace_config {
             provider_builder.with_config(config)
         } else {
