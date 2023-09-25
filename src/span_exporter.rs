@@ -1,7 +1,7 @@
 use crate::errors::*;
 use crate::google_trace_exporter_client::GcpCloudTraceExporterClient;
 use crate::TraceExportResult;
-use futures_util::future::{BoxFuture, TryFutureExt};
+use futures::future::{BoxFuture, TryFutureExt};
 use gcloud_sdk::GoogleEnvironment;
 use opentelemetry::sdk::export::trace::{ExportResult, SpanData, SpanExporter};
 use std::fmt::Formatter;
