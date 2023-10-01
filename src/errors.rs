@@ -64,8 +64,8 @@ impl From<gcloud_sdk::error::Error> for GcloudTraceError {
     }
 }
 
-impl From<tonic::Status> for GcloudTraceError {
-    fn from(status: tonic::Status) -> Self {
+impl From<gcloud_sdk::tonic::Status> for GcloudTraceError {
+    fn from(status: gcloud_sdk::tonic::Status) -> Self {
         GcloudTraceError::NetworkError(GcloudTraceNetworkError::new(format!("{status}")))
     }
 }
