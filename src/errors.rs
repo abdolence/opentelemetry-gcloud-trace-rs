@@ -1,5 +1,5 @@
 use gcloud_sdk::error::Error;
-use opentelemetry::sdk::export::ExportError;
+use opentelemetry::ExportError;
 use rsb_derive::*;
 
 pub type BoxedError = Box<dyn std::error::Error + Send + Sync>;

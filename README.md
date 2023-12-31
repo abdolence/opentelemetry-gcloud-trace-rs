@@ -16,6 +16,7 @@ opentelemetry-gcloud-trace = "0.7"
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.8                                | 0.21                  | 0.22                  | 0.23       |
 | 0.7                                | 0.20                  | 0.21                  | 0.21       |
 | 0.6                                | 0.20                  | 0.20                  | 0.20       |
 | 0.5                                | 0.19                  | 0.19                  | 0.20       |
@@ -26,13 +27,11 @@ Example:
 
 ```rust
 
-use opentelemetry::KeyValue;
 use opentelemetry::trace::*;
 use opentelemetry_gcloud_trace::*;
 
-let tracer: opentelemetry::sdk::trace::Tracer =
-  GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-    .install_simple() // use install_batch for production/performance reasons
+let tracer = GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+    .install()
     .await?;
 
 tracer.in_span("doing_work_parent", |cx| {
@@ -51,26 +50,14 @@ To run example use with environment variables:
 
 ![Google Cloud Console Example](docs/img/gcloud-example.png)
 
-## Performance
-For optimal performance, a batch exporter is recommended as the simple exporter will export
-each span synchronously on drop. You can enable the [`rt-tokio`], [`rt-tokio-current-thread`]
-features and specify a runtime on the pipeline to have a batch exporter
-configured for you automatically.
 
 ```toml
 [dependencies]
-opentelemetry = { version = "*", features = ["rt-tokio"] }
+opentelemetry = { version = "*", features = [] }
+opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
 opentelemetry-gcloud-trace = "*"
 ```
 
-```rust
-let tracer: opentelemetry::sdk::trace::Tracer =
-   GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-  .install_batch(
-     opentelemetry::runtime::Tokio
-   )
-  .await?;
-```
 
 ## Configuration
 

@@ -17,8 +17,8 @@
 //!
 //! ```ignore
 //! let google_project_id = config_env_var("PROJECT_ID")?;
-//! let tracer: opentelemetry::sdk::trace::Tracer = GcpCloudTraceExporterBuilder::new(google_project_id)
-//!   .install_batch(opentelemetry::runtime::Tokio)
+//! let tracer = GcpCloudTraceExporterBuilder::new(google_project_id)
+//!   .install()
 //!   .await?;
 //! ```
 //! ## Configuration
@@ -46,10 +46,12 @@ pub use span_exporter::GcpCloudTraceExporter;
 
 use rsb_derive::*;
 
+pub type SdkTracer = opentelemetry_sdk::trace::Tracer;
+
 #[derive(Debug, Builder)]
 pub struct GcpCloudTraceExporterBuilder {
     pub google_project_id: String,
-    pub trace_config: Option<opentelemetry::sdk::trace::Config>,
+    pub trace_config: Option<opentelemetry_sdk::trace::Config>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -64,39 +66,27 @@ impl GcpCloudTraceExporterBuilder {
         Ok(Self::new(detected_project_id))
     }
 
+    pub async fn install(
+        self,
+    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+        self.install_batch(opentelemetry_sdk::runtime::Tokio).await
+    }
+
     pub async fn install_simple(
         self,
-    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
-        let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
-
-        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry::runtime::Tokio);
-        provider_builder = if let Some(config) = self.trace_config {
-            provider_builder.with_config(config)
-        } else {
-            provider_builder
-        };
-        let provider = provider_builder.build();
-        let tracer = provider.versioned_tracer(
-            "opentelemetry-gcloud",
-            Some(env!("CARGO_PKG_VERSION")),
-            Some("https://opentelemetry.io/schemas/1.23.0"),
-            None,
-        );
-        let _ = opentelemetry::global::set_tracer_provider(provider);
-        Ok(tracer)
+    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+        self.install().await
     }
 
     pub async fn install_batch<
-        R: opentelemetry::sdk::runtime::Runtime
-            + opentelemetry::runtime::RuntimeChannel<opentelemetry::sdk::trace::BatchMessage>,
+        R: opentelemetry_sdk::runtime::Runtime + opentelemetry_sdk::runtime::RuntimeChannel,
     >(
         self,
         runtime: R,
-    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
         let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
 
-        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
+        let mut provider_builder = opentelemetry_sdk::trace::TracerProvider::builder()
             .with_batch_exporter(exporter, runtime);
         provider_builder = if let Some(config) = self.trace_config {
             provider_builder.with_config(config)
