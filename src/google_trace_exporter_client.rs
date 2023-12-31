@@ -5,8 +5,10 @@ use gcloud_sdk::google::devtools::cloudtrace::v2::{
 };
 use gcloud_sdk::google::rpc::{Code as GcpStatusCode, Status as GcpStatus};
 use gcloud_sdk::*;
-use opentelemetry::sdk::export::trace::SpanData;
 use std::ops::Deref;
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::export::trace::SpanData;
+
 
 #[derive(Clone)]
 pub struct GcpCloudTraceExporterClient {
@@ -90,23 +92,23 @@ impl GcpCloudTraceExporterClient {
         }
     }
 
-    fn convert_span_attrs(attrs: &opentelemetry::sdk::trace::EvictedHashMap) -> gspan::Attributes {
+    fn convert_span_attrs(attrs: &Vec<KeyValue>) -> gspan::Attributes {
         const MAX_ATTRS: usize = 32;
         gspan::Attributes {
             attribute_map: attrs
                 .iter()
                 .take(MAX_ATTRS)
-                .map(|(attribute_key, attribute_value)| {
+                .map(|attribute| {
                     (
-                        attribute_key.to_string(),
-                        Self::convert_span_attr_value(attribute_value),
+                        attribute.key.to_string(),
+                        Self::convert_span_attr_value(&attribute.value),
                     )
                 })
                 .collect(),
             dropped_attributes_count: if attrs.len() > MAX_ATTRS {
-                (attrs.dropped_count() as usize + attrs.len() - MAX_ATTRS) as i32
+                (attrs.len() - MAX_ATTRS) as i32
             } else {
-                attrs.dropped_count() as i32
+                0
             },
         }
     }
@@ -135,7 +137,7 @@ impl GcpCloudTraceExporterClient {
     }
 
     fn convert_time_events(
-        events: &opentelemetry::sdk::trace::EvictedQueue<opentelemetry::trace::Event>,
+        events: &opentelemetry_sdk::trace::EvictedQueue<opentelemetry::trace::Event>,
     ) -> gspan::TimeEvents {
         const MAX_EVENTS: usize = 128;
 
@@ -186,7 +188,7 @@ impl GcpCloudTraceExporterClient {
     }
 
     fn convert_links(
-        links: &opentelemetry::sdk::trace::EvictedQueue<opentelemetry::trace::Link>,
+        links: &opentelemetry_sdk::trace::EvictedQueue<opentelemetry::trace::Link>,
     ) -> gspan::Links {
         const MAX_LINKS: usize = 128;
 

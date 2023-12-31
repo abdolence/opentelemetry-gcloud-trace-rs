@@ -49,7 +49,7 @@ use rsb_derive::*;
 #[derive(Debug, Builder)]
 pub struct GcpCloudTraceExporterBuilder {
     pub google_project_id: String,
-    pub trace_config: Option<opentelemetry::sdk::trace::Config>,
+    pub trace_config: Option<opentelemetry_sdk::trace::Config>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -66,11 +66,11 @@ impl GcpCloudTraceExporterBuilder {
 
     pub async fn install_simple(
         self,
-    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
         let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
 
-        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry::runtime::Tokio);
+        let mut provider_builder = opentelemetry_sdk::trace::TracerProvider::builder()
+            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio);
         provider_builder = if let Some(config) = self.trace_config {
             provider_builder.with_config(config)
         } else {
@@ -88,15 +88,15 @@ impl GcpCloudTraceExporterBuilder {
     }
 
     pub async fn install_batch<
-        R: opentelemetry::sdk::runtime::Runtime
-            + opentelemetry::runtime::RuntimeChannel<opentelemetry::sdk::trace::BatchMessage>,
+        R: opentelemetry_sdk::runtime::Runtime
+            + opentelemetry_sdk::runtime::RuntimeChannel,
     >(
         self,
         runtime: R,
-    ) -> Result<opentelemetry::sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
         let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
 
-        let mut provider_builder = opentelemetry::sdk::trace::TracerProvider::builder()
+        let mut provider_builder = opentelemetry_sdk::trace::TracerProvider::builder()
             .with_batch_exporter(exporter, runtime);
         provider_builder = if let Some(config) = self.trace_config {
             provider_builder.with_config(config)
