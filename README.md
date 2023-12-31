@@ -9,7 +9,7 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.7"
+opentelemetry-gcloud-trace = "0.8"
 ```
 
 ## Compatibility matrix
