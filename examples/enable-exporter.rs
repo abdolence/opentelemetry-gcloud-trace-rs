@@ -9,11 +9,10 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let tracer: opentelemetry::sdk::trace::Tracer =
-        GcpCloudTraceExporterBuilder::for_default_project_id()
-            .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-            .install_simple()
-            .await?;
+    let tracer = GcpCloudTraceExporterBuilder::for_default_project_id()
+        .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+        .install()
+        .await?;
 
     tracer.in_span("doing_work_parent", |cx| {
         cx.span()

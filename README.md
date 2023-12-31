@@ -27,12 +27,10 @@ Example:
 
 ```rust
 
-use opentelemetry::KeyValue;
 use opentelemetry::trace::*;
 use opentelemetry_gcloud_trace::*;
 
-let tracer: opentelemetry::sdk::trace::Tracer =
-  GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+let tracer = GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
     .install_simple() // use install_batch for production/performance reasons
     .await?;
 
@@ -60,15 +58,15 @@ configured for you automatically.
 
 ```toml
 [dependencies]
-opentelemetry = { version = "*", features = ["rt-tokio"] }
+opentelemetry = { version = "*", features = [] }
+opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
 opentelemetry-gcloud-trace = "*"
 ```
 
 ```rust
-let tracer: opentelemetry::sdk::trace::Tracer =
-   GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+let tracer = GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
   .install_batch(
-     opentelemetry::runtime::Tokio
+     opentelemetry_sdk::runtime::Tokio
    )
   .await?;
 ```

@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer: opentelemetry_sdk::trace::Tracer =
         GcpCloudTraceExporterBuilder::for_default_project_id()
             .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-            .install_batch(opentelemetry_sdk::runtime::Tokio)
+            .install()
             .await?;
 
     // Create a tracing layer with the configured tracer
