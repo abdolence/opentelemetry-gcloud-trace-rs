@@ -51,7 +51,8 @@ impl GcpCloudTraceExporterClient {
                         span.span_context.span_id()
                     ),
                     span_id: span.span_context.span_id().to_string(),
-                    parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID {
+                    parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID
+                    {
                         span.parent_span_id.to_string()
                     } else {
                         "".to_string()
@@ -130,12 +131,10 @@ impl GcpCloudTraceExporterClient {
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
                 opentelemetry::Value::Array(arr) => {
                     // Basic array support converting to string with delimiters
-                    gcp_attribute_value::Value::StringValue(
-                        Self::truncatable_string(
-                            &arr.to_string(),
-                            MAX_STR_LEN,
-                        ),
-                    )
+                    gcp_attribute_value::Value::StringValue(Self::truncatable_string(
+                        &arr.to_string(),
+                        MAX_STR_LEN,
+                    ))
                 }
             }),
         }

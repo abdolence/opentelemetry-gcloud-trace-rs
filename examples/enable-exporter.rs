@@ -1,6 +1,5 @@
 use opentelemetry::trace::*;
 use opentelemetry::KeyValue;
-use tracing_opentelemetry::PreSampledTracer;
 
 use opentelemetry_gcloud_trace::*;
 
@@ -18,13 +17,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracer.in_span("my_parent_work", |cx| {
         let span = cx.span();
         span.set_attribute(KeyValue::new("http.client_ip", "42.42.42.42"));
-        span.set_attribute(KeyValue::new("my_test_arr", opentelemetry::Value::Array(vec![42i64,42i64].into())));
+        span.set_attribute(KeyValue::new(
+            "my_test_arr",
+            opentelemetry::Value::Array(vec![42i64, 42i64].into()),
+        ));
         span.add_event(
             "test-event",
             vec![KeyValue::new("test_event_attr", "test-event-value")],
         );
         tracer.in_span("my_child_work", |cx| {
-            println!("Do printing, nothing more here. Please check your Google Cloud Trace dashboard.");
+            println!(
+                "Do printing, nothing more here. Please check your Google Cloud Trace dashboard."
+            );
 
             cx.span().add_event(
                 "test-child-event",
