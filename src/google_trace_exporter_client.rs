@@ -51,7 +51,11 @@ impl GcpCloudTraceExporterClient {
                         span.span_context.span_id()
                     ),
                     span_id: span.span_context.span_id().to_string(),
-                    parent_span_id: span.parent_span_id.to_string(),
+                    parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID {
+                        span.parent_span_id.to_string()
+                    } else {
+                        "".to_string()
+                    },
                     display_name: Some(Self::truncatable_string(span.name.deref(), 128)),
                     start_time: Some(prost_types::Timestamp::from(span.start_time)),
                     end_time: Some(prost_types::Timestamp::from(span.end_time)),
@@ -126,21 +130,9 @@ impl GcpCloudTraceExporterClient {
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
                 opentelemetry::Value::Array(arr) => {
                     // Basic array support converting to string with delimiters
-                    let arr_values_str = arr.iter()
-                        .map(|v| match v {
-                            opentelemetry::Value::I64(value) => value.to_string(),
-                            opentelemetry::Value::F64(value) => {
-                                format!("{value:.2}").to_string()
-                            }
-                            opentelemetry::Value::String(value) => value.to_string(),
-                            opentelemetry::Value::Bool(value) => value.to_string(),
-                            opentelemetry::Value::Array(_) => "[Array]".to_string(),
-                        })
-                        .collect::<Vec<String>>()
-                        .join(", ");
                     gcp_attribute_value::Value::StringValue(
                         Self::truncatable_string(
-                            format!("[{}]", arr_values_str).as_str(),
+                            &arr.to_string(),
                             MAX_STR_LEN,
                         ),
                     )
