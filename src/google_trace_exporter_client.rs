@@ -124,12 +124,26 @@ impl GcpCloudTraceExporterClient {
                     Self::truncatable_string(value.as_str(), MAX_STR_LEN),
                 ),
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
-                opentelemetry::Value::Array(_) => {
-                    // Arrays aren't supported yet
-                    gcp_attribute_value::Value::StringValue(Self::truncatable_string(
-                        "array[...]",
-                        MAX_STR_LEN,
-                    ))
+                opentelemetry::Value::Array(arr) => {
+                    // Basic array support converting to string with delimiters
+                    let arr_values_str = arr.iter()
+                        .map(|v| match v {
+                            opentelemetry::Value::I64(value) => value.to_string(),
+                            opentelemetry::Value::F64(value) => {
+                                format!("{value:.2}").to_string()
+                            }
+                            opentelemetry::Value::String(value) => value.to_string(),
+                            opentelemetry::Value::Bool(value) => value.to_string(),
+                            opentelemetry::Value::Array(_) => "[Array]".to_string(),
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    gcp_attribute_value::Value::StringValue(
+                        Self::truncatable_string(
+                            format!("[{}]", arr_values_str).as_str(),
+                            MAX_STR_LEN,
+                        ),
+                    )
                 }
             }),
         }
