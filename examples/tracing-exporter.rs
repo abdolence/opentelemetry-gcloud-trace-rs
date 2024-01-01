@@ -26,8 +26,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Trace executed code
     tracing::subscriber::with_default(subscriber, || {
         // Spans will be sent to the configured OpenTelemetry exporter
-        let root = span!(tracing::Level::TRACE, "app_start", work_units = 2);
+        let root = span!(tracing::Level::TRACE, "my_app", work_units = 2);
         let _enter = root.enter();
+
+        let child_span = span!(
+            tracing::Level::TRACE,
+            "my_child",
+            work_units = 2,
+            "http.client_ip" = "42.42.42.42"
+        );
+        child_span.in_scope(|| {
+            info!(
+                "Do printing, nothing more here. Please check your Google Cloud Trace dashboard."
+            );
+        });
 
         error!("This event will be logged in the root span.");
     });

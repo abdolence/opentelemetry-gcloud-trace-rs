@@ -39,8 +39,6 @@ impl GcpCloudTraceExporterClient {
     }
 
     pub async fn export_batch(&self, batch: Vec<SpanData>) -> TraceExportResult<()> {
-        let mut client = self.client.get();
-
         let batch_request = BatchWriteSpansRequest {
             name: format!("projects/{}", self.google_project_id),
             spans: batch
@@ -53,7 +51,12 @@ impl GcpCloudTraceExporterClient {
                         span.span_context.span_id()
                     ),
                     span_id: span.span_context.span_id().to_string(),
-                    parent_span_id: span.parent_span_id.to_string(),
+                    parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID
+                    {
+                        span.parent_span_id.to_string()
+                    } else {
+                        "".to_string()
+                    },
                     display_name: Some(Self::truncatable_string(span.name.deref(), 128)),
                     start_time: Some(prost_types::Timestamp::from(span.start_time)),
                     end_time: Some(prost_types::Timestamp::from(span.end_time)),
@@ -61,13 +64,15 @@ impl GcpCloudTraceExporterClient {
                     time_events: Some(Self::convert_time_events(&span.events)),
                     links: Some(Self::convert_links(&span.links)),
                     status: Self::convert_status(&span),
+                    span_kind: Self::convert_span_kind(&span.span_kind).into(),
                     ..GcpSpan::default()
                 })
                 .collect(),
             ..BatchWriteSpansRequest::default()
         };
 
-        client
+        self.client
+            .get()
             .batch_write_spans(tonic::Request::new(batch_request))
             .await?;
 
@@ -124,10 +129,10 @@ impl GcpCloudTraceExporterClient {
                     Self::truncatable_string(value.as_str(), MAX_STR_LEN),
                 ),
                 opentelemetry::Value::Bool(value) => gcp_attribute_value::Value::BoolValue(*value),
-                opentelemetry::Value::Array(_) => {
-                    // Arrays aren't supported yet
+                opentelemetry::Value::Array(arr) => {
+                    // Basic array support converting to string with delimiters
                     gcp_attribute_value::Value::StringValue(Self::truncatable_string(
-                        "array[...]",
+                        &arr.to_string(),
                         MAX_STR_LEN,
                     ))
                 }
@@ -226,6 +231,16 @@ impl GcpCloudTraceExporterClient {
                 message: description.to_string(),
                 ..GcpStatus::default()
             }),
+        }
+    }
+
+    fn convert_span_kind(span_kind: &opentelemetry::trace::SpanKind) -> gspan::SpanKind {
+        match span_kind {
+            opentelemetry::trace::SpanKind::Client => gspan::SpanKind::Client,
+            opentelemetry::trace::SpanKind::Server => gspan::SpanKind::Server,
+            opentelemetry::trace::SpanKind::Producer => gspan::SpanKind::Producer,
+            opentelemetry::trace::SpanKind::Consumer => gspan::SpanKind::Consumer,
+            opentelemetry::trace::SpanKind::Internal => gspan::SpanKind::Internal,
         }
     }
 }
