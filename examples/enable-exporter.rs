@@ -11,6 +11,7 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer = GcpCloudTraceExporterBuilder::for_default_project_id()
         .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+        .with_trace_config()
         .install()
         .await?;
 

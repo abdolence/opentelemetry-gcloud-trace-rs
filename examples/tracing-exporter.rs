@@ -29,6 +29,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let root = span!(tracing::Level::TRACE, "app_start", work_units = 2);
         let _enter = root.enter();
 
+        let child_span = span!(
+            tracing::Level::TRACE,
+            "child",
+            work_units = 2,
+            "http.client_ip" = "42.42.42.42"
+        );
+        child_span.in_scope(|| {
+            info!("Doing child work");
+        });
+
         error!("This event will be logged in the root span.");
     });
 

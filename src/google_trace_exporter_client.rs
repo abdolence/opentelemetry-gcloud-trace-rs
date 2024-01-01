@@ -39,8 +39,6 @@ impl GcpCloudTraceExporterClient {
     }
 
     pub async fn export_batch(&self, batch: Vec<SpanData>) -> TraceExportResult<()> {
-        let mut client = self.client.get();
-
         let batch_request = BatchWriteSpansRequest {
             name: format!("projects/{}", self.google_project_id),
             spans: batch
@@ -61,13 +59,15 @@ impl GcpCloudTraceExporterClient {
                     time_events: Some(Self::convert_time_events(&span.events)),
                     links: Some(Self::convert_links(&span.links)),
                     status: Self::convert_status(&span),
+                    span_kind: Self::convert_span_kind(&span.span_kind).into(),
                     ..GcpSpan::default()
                 })
                 .collect(),
             ..BatchWriteSpansRequest::default()
         };
 
-        client
+        self.client
+            .get()
             .batch_write_spans(tonic::Request::new(batch_request))
             .await?;
 
@@ -226,6 +226,16 @@ impl GcpCloudTraceExporterClient {
                 message: description.to_string(),
                 ..GcpStatus::default()
             }),
+        }
+    }
+
+    fn convert_span_kind(span_kind: &opentelemetry::trace::SpanKind) -> gspan::SpanKind {
+        match span_kind {
+            opentelemetry::trace::SpanKind::Client => gspan::SpanKind::Client,
+            opentelemetry::trace::SpanKind::Server => gspan::SpanKind::Server,
+            opentelemetry::trace::SpanKind::Producer => gspan::SpanKind::Producer,
+            opentelemetry::trace::SpanKind::Consumer => gspan::SpanKind::Consumer,
+            opentelemetry::trace::SpanKind::Internal => gspan::SpanKind::Internal,
         }
     }
 }
