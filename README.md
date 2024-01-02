@@ -104,7 +104,6 @@ fn init_stackdriver_log(
     gcp_project_id: &str,
     tracer: opentelemetry_sdk::trace::Tracer,
 ) -> Result<(), BoxedError> {
-    use tracing_subscriber::prelude::*;
     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
 
     let stackdriver_layer = tracing_stackdriver::layer().with_cloud_trace(
@@ -119,12 +118,14 @@ fn init_stackdriver_log(
         .with(tracing_subscriber::EnvFilter::from_str(
             "gcloud_sdk=debug",
         )?);
-    tracing::subscriber::set_global_default(subscriber).expect("Could not set up global logger");
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Could not set up global logger");
 
     Ok(())
 }
 
-async fn init_tracing(app_mode: &GlobalAppMode, gcp_project_id: &str) -> Result<(), BoxedError> {
+async fn init_tracing(app_mode: &GlobalAppMode, 
+                      gcp_project_id: &str) -> Result<(), BoxedError> {
     let tracer = GcpCloudTraceExporterBuilder::new(gcp_project_id.into())
         .install()
         .await?;
