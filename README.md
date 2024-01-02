@@ -39,11 +39,10 @@ tracer.in_span("doing_work_parent", |cx| {
 });
 
 ```
-This is a basic configuration, not recommended for prod systems. See the [Performance](#performance) section for prod config.
 
-All examples available at [examples](examples) directory.
+All examples are available at [examples](examples) directory.
 
-To run example use with environment variables:
+To run an example use with environment variables:
 ```
 # PROJECT_ID=<your-google-project-id> cargo run --example enable-exporter
 ```
