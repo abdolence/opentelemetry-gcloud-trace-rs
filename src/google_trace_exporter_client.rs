@@ -140,9 +140,7 @@ impl GcpCloudTraceExporterClient {
         }
     }
 
-    fn convert_time_events(
-        events: &opentelemetry_sdk::trace::EvictedQueue<opentelemetry::trace::Event>,
-    ) -> gspan::TimeEvents {
+    fn convert_time_events(events: &opentelemetry_sdk::trace::SpanEvents) -> gspan::TimeEvents {
         const MAX_EVENTS: usize = 128;
 
         gspan::TimeEvents {
@@ -151,10 +149,10 @@ impl GcpCloudTraceExporterClient {
                 .take(MAX_EVENTS)
                 .map(Self::convert_time_event)
                 .collect(),
-            dropped_annotations_count: if events.len() > MAX_EVENTS {
-                (events.dropped_count() as usize + events.len() - MAX_EVENTS) as i32
+            dropped_message_events_count: if events.len() > MAX_EVENTS {
+                (events.dropped_count as usize + events.len() - MAX_EVENTS) as i32
             } else {
-                events.dropped_count() as i32
+                events.dropped_count as i32
             },
             ..gspan::TimeEvents::default()
         }
@@ -191,9 +189,7 @@ impl GcpCloudTraceExporterClient {
         })
     }
 
-    fn convert_links(
-        links: &opentelemetry_sdk::trace::EvictedQueue<opentelemetry::trace::Link>,
-    ) -> gspan::Links {
+    fn convert_links(links: &opentelemetry_sdk::trace::SpanLinks) -> gspan::Links {
         const MAX_LINKS: usize = 128;
 
         gspan::Links {
@@ -203,9 +199,9 @@ impl GcpCloudTraceExporterClient {
                 .map(Self::convert_link)
                 .collect(),
             dropped_links_count: if links.len() > MAX_LINKS {
-                (links.dropped_count() as usize + links.len() - MAX_LINKS) as i32
+                (links.dropped_count as usize + links.len() - MAX_LINKS) as i32
             } else {
-                links.dropped_count() as i32
+                links.dropped_count as i32
             },
             ..gspan::Links::default()
         }

@@ -16,6 +16,7 @@ opentelemetry-gcloud-trace = "0.8"
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.9                                | 0.22                  | 0.23                  | 0.24       |
 | 0.8                                | 0.21                  | 0.22                  | 0.23       |
 | 0.7                                | 0.20                  | 0.21                  | 0.21       |
 | 0.6                                | 0.20                  | 0.20                  | 0.20       |
