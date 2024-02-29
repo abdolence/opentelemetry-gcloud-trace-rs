@@ -96,7 +96,7 @@ impl GcpCloudTraceExporterClient {
         }
     }
 
-    fn convert_span_attrs(attrs: &Vec<KeyValue>) -> gspan::Attributes {
+    fn convert_span_attrs(attrs: &[KeyValue]) -> gspan::Attributes {
         const MAX_ATTRS: usize = 32;
         gspan::Attributes {
             attribute_map: attrs
