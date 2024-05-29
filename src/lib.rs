@@ -94,12 +94,12 @@ impl GcpCloudTraceExporterBuilder {
             provider_builder
         };
         let provider = provider_builder.build();
-        let tracer = provider.versioned_tracer(
-            "opentelemetry-gcloud",
-            Some(env!("CARGO_PKG_VERSION")),
-            Some("https://opentelemetry.io/schemas/1.23.0"),
-            None,
-        );
+        let tracer = provider
+            .tracer_builder("opentelemetry-gcloud")
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_schema_url("https://opentelemetry.io/schemas/1.23.0")
+            .build();
+
         let _ = opentelemetry::global::set_tracer_provider(provider);
         Ok(tracer)
     }
