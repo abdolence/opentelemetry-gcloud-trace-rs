@@ -41,7 +41,10 @@ pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 mod google_trace_exporter_client;
 mod span_exporter;
 
+use std::ops::Deref;
+
 use opentelemetry::trace::TracerProvider;
+use opentelemetry_sdk::Resource;
 pub use span_exporter::GcpCloudTraceExporter;
 
 use rsb_derive::*;
@@ -84,16 +87,26 @@ impl GcpCloudTraceExporterBuilder {
         self,
         runtime: R,
     ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
-        let exporter = GcpCloudTraceExporter::new(&self.google_project_id).await?;
+        let provider = if let Some(config) = self.trace_config {
+            let exporter = GcpCloudTraceExporter::new(
+                &self.google_project_id,
+                config.resource.deref().clone(),
+            )
+            .await?;
 
-        let mut provider_builder = opentelemetry_sdk::trace::TracerProvider::builder()
-            .with_batch_exporter(exporter, runtime);
-        provider_builder = if let Some(config) = self.trace_config {
-            provider_builder.with_config(config)
+            opentelemetry_sdk::trace::TracerProvider::builder()
+                .with_batch_exporter(exporter, runtime)
+                .with_config(config)
+                .build()
         } else {
-            provider_builder
+            let exporter =
+                GcpCloudTraceExporter::new(&self.google_project_id, Resource::default()).await?;
+
+            opentelemetry_sdk::trace::TracerProvider::builder()
+                .with_batch_exporter(exporter, runtime)
+                .build()
         };
-        let provider = provider_builder.build();
+
         let tracer = provider
             .tracer_builder("opentelemetry-gcloud")
             .with_version(env!("CARGO_PKG_VERSION"))
