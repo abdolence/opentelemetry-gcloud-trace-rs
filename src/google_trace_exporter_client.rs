@@ -6,7 +6,7 @@ use gcloud_sdk::google::devtools::cloudtrace::v2::{
 use gcloud_sdk::google::rpc::{Code as GcpStatusCode, Status as GcpStatus};
 use gcloud_sdk::*;
 use opentelemetry::KeyValue;
-use opentelemetry_sdk::export::trace::SpanData;
+use opentelemetry_sdk::{export::trace::SpanData, Resource};
 use std::ops::Deref;
 
 #[derive(Clone)]
@@ -17,10 +17,11 @@ pub struct GcpCloudTraceExporterClient {
         >,
     >,
     google_project_id: String,
+    resource_attributes: Vec<KeyValue>,
 }
 
 impl GcpCloudTraceExporterClient {
-    pub async fn new(google_project_id: &str) -> TraceExportResult<Self> {
+    pub async fn new(google_project_id: &str, resource: Resource) -> TraceExportResult<Self> {
         let client: GoogleApi<
             google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
                 GoogleAuthMiddleware,
@@ -35,6 +36,10 @@ impl GcpCloudTraceExporterClient {
         Ok(Self {
             client,
             google_project_id: google_project_id.to_string(),
+            resource_attributes: resource
+                .iter()
+                .map(|(k, v)| KeyValue::new(k.clone(), v.clone()))
+                .collect(),
         })
     }
 
@@ -60,7 +65,7 @@ impl GcpCloudTraceExporterClient {
                     display_name: Some(Self::truncatable_string(span.name.deref(), 128)),
                     start_time: Some(prost_types::Timestamp::from(span.start_time)),
                     end_time: Some(prost_types::Timestamp::from(span.end_time)),
-                    attributes: Some(Self::convert_span_attrs(&span.attributes)),
+                    attributes: Some(self.convert_span_attrs(&span.attributes)),
                     time_events: Some(Self::convert_time_events(&span.events)),
                     links: Some(Self::convert_links(&span.links)),
                     status: Self::convert_status(&span),
@@ -96,11 +101,12 @@ impl GcpCloudTraceExporterClient {
         }
     }
 
-    fn convert_span_attrs(attrs: &[KeyValue]) -> gspan::Attributes {
+    fn convert_span_attrs(&self, attrs: &[KeyValue]) -> gspan::Attributes {
         const MAX_ATTRS: usize = 32;
         gspan::Attributes {
             attribute_map: attrs
                 .iter()
+                .chain(&self.resource_attributes)
                 .take(MAX_ATTRS)
                 .map(|attribute| {
                     (

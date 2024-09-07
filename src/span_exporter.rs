@@ -4,7 +4,10 @@ use crate::TraceExportResult;
 use futures::future::{BoxFuture, TryFutureExt};
 use futures::FutureExt;
 use gcloud_sdk::GoogleEnvironment;
-use opentelemetry_sdk::export::trace::{ExportResult, SpanData, SpanExporter};
+use opentelemetry_sdk::{
+    export::trace::{ExportResult, SpanData, SpanExporter},
+    Resource,
+};
 use std::fmt::Formatter;
 use std::sync::Arc;
 
@@ -13,9 +16,11 @@ pub struct GcpCloudTraceExporter {
 }
 
 impl GcpCloudTraceExporter {
-    pub async fn new(google_project_id: &str) -> TraceExportResult<Self> {
+    pub async fn new(google_project_id: &str, resource: Resource) -> TraceExportResult<Self> {
         Ok(Self {
-            gcp_export_client: Arc::new(GcpCloudTraceExporterClient::new(google_project_id).await?),
+            gcp_export_client: Arc::new(
+                GcpCloudTraceExporterClient::new(google_project_id, resource).await?,
+            ),
         })
     }
 
@@ -27,7 +32,7 @@ impl GcpCloudTraceExporter {
                 )
             )
         )?;
-        Self::new(detected_project_id.as_str()).await
+        Self::new(detected_project_id.as_str(), Resource::default()).await
     }
 }
 
