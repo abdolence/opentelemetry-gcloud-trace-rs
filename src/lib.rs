@@ -41,11 +41,11 @@ pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 mod google_trace_exporter_client;
 mod span_exporter;
 
-use std::ops::Deref;
-
 use opentelemetry::trace::TracerProvider;
+use opentelemetry::InstrumentationScope;
 use opentelemetry_sdk::Resource;
 pub use span_exporter::GcpCloudTraceExporter;
+use std::ops::Deref;
 
 use rsb_derive::*;
 
@@ -107,11 +107,12 @@ impl GcpCloudTraceExporterBuilder {
                 .build()
         };
 
-        let tracer = provider
-            .tracer_builder("opentelemetry-gcloud")
+        let scope = InstrumentationScope::builder("opentelemetry-gcloud")
             .with_version(env!("CARGO_PKG_VERSION"))
             .with_schema_url("https://opentelemetry.io/schemas/1.23.0")
             .build();
+
+        let tracer = provider.tracer_with_scope(scope);
 
         let _ = opentelemetry::global::set_tracer_provider(provider);
         Ok(tracer)
