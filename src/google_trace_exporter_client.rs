@@ -142,6 +142,10 @@ impl GcpCloudTraceExporterClient {
                         MAX_STR_LEN,
                     ))
                 }
+                _ => gcp_attribute_value::Value::StringValue(Self::truncatable_string(
+                    "unknown_value",
+                    MAX_STR_LEN,
+                )),
             }),
         }
     }
