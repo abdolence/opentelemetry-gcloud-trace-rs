@@ -25,7 +25,7 @@ tracing = "0.1"
 opentelemetry = { version = "0.27" }
 opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
 opentelemetry-semantic-conventions = { version = "0.27" }
-gcloud-sdk = { version = "0.25", features = ["google-devtools-cloudtrace-v2"], default-features = false }
+gcloud-sdk = { version = "0.26", features = ["google-devtools-cloudtrace-v2"], default-features = false }
 rvstruct = "0.3"
 rsb_derive = "0.5"
 tokio = { version = "1" }
