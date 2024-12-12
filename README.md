@@ -58,11 +58,11 @@ opentelemetry-gcloud-trace = "*"
 
 ## Configuration
 
-You can specify trace configuration using `with_trace_config`:
+You can specify trace configuration using `with_tracer_provider_builder`:
 
 ```rust
-   GcpCloudTraceExporterBuilder::new(google_project_id).with_trace_config(
-      trace::config()
+   GcpCloudTraceExporterBuilder::new(google_project_id).with_tracer_provider_builder(
+       TracerProvider::builder()
          .with_sampler(Sampler::AlwaysOn)
          .with_id_generator(RandomIdGenerator::default())
    )
