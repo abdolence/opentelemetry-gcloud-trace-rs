@@ -23,15 +23,27 @@
 //! ```
 //! ## Configuration
 //!
-//! You can specify trace configuration using `with_trace_config`:
+//! You can specify trace configuration using `with_tracer_provider_builder`:
 //!
 //! ```ignore
-//!    GcpCloudTraceExporterBuilder::new(google_project_id).with_trace_config(
-//!       trace::config()
+//!    GcpCloudTraceExporterBuilder::new(google_project_id).with_tracer_provider_builder(
+//!       TracerProvider::builder()
 //!          .with_sampler(Sampler::AlwaysOn)
 //!          .with_id_generator(RandomIdGenerator::default())
 //!    )
 //! ```
+//!
+//! you can specify resource using `with_resource`:
+//! ```ignore
+//!    let resources = Resource::new(vec![KeyValue::new("service.name", "my-service")]);
+//!    GcpCloudTraceExporterBuilder::new(google_project_id).with_tracer_provider_builder(
+//!       TracerProvider::builder()
+//!          .with_sampler(Sampler::AlwaysOn)
+//!          .with_id_generator(RandomIdGenerator::default(
+//!          .with_resource(resource.clone()),
+//!    )
+//!    .with_resource(resource)
+//!    .await?;
 
 #![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
@@ -44,17 +56,16 @@ mod span_exporter;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::InstrumentationScope;
 use opentelemetry_sdk::Resource;
-pub use span_exporter::GcpCloudTraceExporter;
-use std::ops::Deref;
-
 use rsb_derive::*;
+pub use span_exporter::GcpCloudTraceExporter;
 
 pub type SdkTracer = opentelemetry_sdk::trace::Tracer;
 
 #[derive(Debug, Builder)]
 pub struct GcpCloudTraceExporterBuilder {
     pub google_project_id: String,
-    pub trace_config: Option<opentelemetry_sdk::trace::Config>,
+    pub tracer_provider_builder: Option<opentelemetry_sdk::trace::Builder>,
+    pub resource: Option<Resource>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -87,22 +98,15 @@ impl GcpCloudTraceExporterBuilder {
         self,
         runtime: R,
     ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
-        let provider = if let Some(config) = self.trace_config {
+        let provider = {
             let exporter = GcpCloudTraceExporter::new(
                 &self.google_project_id,
-                config.resource.deref().clone(),
+                self.resource.unwrap_or_default(),
             )
             .await?;
 
-            opentelemetry_sdk::trace::TracerProvider::builder()
-                .with_batch_exporter(exporter, runtime)
-                .with_config(config)
-                .build()
-        } else {
-            let exporter =
-                GcpCloudTraceExporter::new(&self.google_project_id, Resource::default()).await?;
-
-            opentelemetry_sdk::trace::TracerProvider::builder()
+            self.tracer_provider_builder
+                .unwrap_or(opentelemetry_sdk::trace::TracerProvider::builder())
                 .with_batch_exporter(exporter, runtime)
                 .build()
         };
