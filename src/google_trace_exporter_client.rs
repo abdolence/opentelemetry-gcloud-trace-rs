@@ -6,7 +6,7 @@ use gcloud_sdk::google::devtools::cloudtrace::v2::{
 use gcloud_sdk::google::rpc::{Code as GcpStatusCode, Status as GcpStatus};
 use gcloud_sdk::*;
 use opentelemetry::KeyValue;
-use opentelemetry_sdk::{export::trace::SpanData, Resource};
+use opentelemetry_sdk::{trace::SpanData, Resource};
 use std::ops::Deref;
 
 #[derive(Clone)]
