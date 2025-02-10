@@ -9,13 +9,14 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.17"
+opentelemetry-gcloud-trace = "0.18"
 ```
 
 ## Compatibility matrix
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.18                               | 0.28                  | N/A                   | 0.26       |
 | 0.17                               | 0.27                  | 0.28                  | 0.26       |
 | 0.16                               | 0.27                  | 0.28                  | 0.25       |
 | 0.15                               | 0.25                  | 0.26                  | 0.25       |
