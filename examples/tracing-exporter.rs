@@ -10,15 +10,12 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder().build();
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::for_default_project_id().await?; // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+    let tracer_provider = gcp_trace_exporter.create_provider().await?;
+    let tracer: opentelemetry_sdk::trace::Tracer =
+        gcp_trace_exporter.install(&tracer_provider).await?;
 
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
-
-    let tracer: opentelemetry_sdk::trace::Tracer =
-        GcpCloudTraceExporterBuilder::for_default_project_id()
-            .await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-            .install()
-            .await?;
 
     // Create a tracing layer with the configured tracer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);

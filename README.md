@@ -16,7 +16,7 @@ opentelemetry-gcloud-trace = "0.18"
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
-| 0.18                               | 0.28                  | N/A                   | 0.26       |
+| 0.18                               | 0.28                  | 0.29                  | 0.26       |
 | 0.17                               | 0.27                  | 0.28                  | 0.26       |
 | 0.16                               | 0.27                  | 0.28                  | 0.25       |
 | 0.15                               | 0.25                  | 0.26                  | 0.25       |
@@ -26,16 +26,19 @@ Example:
 
 ```rust
 
-use opentelemetry::trace::*;
-use opentelemetry_gcloud_trace::*;
+let gcp_trace_exporter = GcpCloudTraceExporterBuilder::for_default_project_id().await?; // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
 
-let tracer = GcpCloudTraceExporterBuilder::for_default_project_id().await? // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
-    .install()
-    .await?;
+let tracer_provider = gcp_trace_exporter.create_provider().await?;
+let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+
+opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
 tracer.in_span("doing_work_parent", |cx| {
   // ...
 });
+
+tracer_provider.shutdown()?;
+
 
 ```
 
@@ -122,17 +125,28 @@ fn init_stackdriver_log(
     Ok(())
 }
 
-async fn init_tracing(app_mode: &GlobalAppMode, 
+async fn init_tracing(app_mode: &GlobalAppMode,
+                      tracer: GcpCloudTraceExporter,
                       gcp_project_id: &str) -> Result<(), BoxedError> {
-    let tracer = GcpCloudTraceExporterBuilder::new(gcp_project_id.into())
-        .install()
-        .await?;
-
     match app_mode {
         GlobalAppMode::Production => init_stackdriver_log(gcp_project_id, tracer),
         GlobalAppMode::Development => init_console_log(tracer),
     }
 }
+
+async fn main() -> Result<(), BoxedError> {
+    let gcp_project_id = "my-gcp-project-id";
+    let exporter = GcpCloudTraceExporterBuilder::new(gcp_project_id.into());
+    let tracer_provider = gcp_trace_exporter.create_provider().await?;
+    let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+    
+    init_tracing(&app_mode, tracer, gcp_project_id).await?;
+    
+    // ...
+
+    tracer_provider.shutdown()?;
+}
+
 
 ```
 
