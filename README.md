@@ -134,11 +134,13 @@ async fn init_tracing(app_mode: &GlobalAppMode,
     }
 }
 
+#[tokio::main]
 async fn main() -> Result<(), BoxedError> {
     let gcp_project_id = "my-gcp-project-id";
     let exporter = GcpCloudTraceExporterBuilder::new(gcp_project_id.into());
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+    let app_mode = GlobalAppMode::Development;
     
     init_tracing(&app_mode, tracer, gcp_project_id).await?;
     
