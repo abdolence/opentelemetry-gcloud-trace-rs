@@ -1,5 +1,4 @@
 use opentelemetry::trace::*;
-use opentelemetry::KeyValue;
 
 use opentelemetry_gcloud_trace::*;
 
@@ -9,7 +8,16 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::for_default_project_id().await?; // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::for_default_project_id()
+        .await?
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_attributes(vec![opentelemetry::KeyValue::new(
+                    "service.name",
+                    "simple-app",
+                )])
+                .build(),
+        ); // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer: opentelemetry_sdk::trace::Tracer =
         gcp_trace_exporter.install(&tracer_provider).await?;
@@ -18,14 +26,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     tracer.in_span("my_parent_work", |cx| {
         let span = cx.span();
-        span.set_attribute(KeyValue::new("http.client_ip", "42.42.42.42"));
-        span.set_attribute(KeyValue::new(
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "http.client_ip",
+            "42.42.42.42",
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new(
             "my_test_arr",
             opentelemetry::Value::Array(vec![42i64, 42i64].into()),
         ));
         span.add_event(
             "test-event",
-            vec![KeyValue::new("test_event_attr", "test-event-value")],
+            vec![opentelemetry::KeyValue::new(
+                "test_event_attr",
+                "test-event-value",
+            )],
         );
         tracer.in_span("my_child_work", |cx| {
             println!(
@@ -34,7 +48,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             cx.span().add_event(
                 "test-child-event",
-                vec![KeyValue::new("test_event_attr", "test-event-value")],
+                vec![opentelemetry::KeyValue::new(
+                    "test_event_attr",
+                    "test-event-value",
+                )],
             );
         })
     });
