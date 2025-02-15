@@ -141,6 +141,8 @@ async fn main() -> Result<(), BoxedError> {
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider).await?;
     let app_mode = GlobalAppMode::Development;
+
+    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
     
     init_tracing(&app_mode, tracer, gcp_project_id).await?;
     
