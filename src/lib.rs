@@ -58,8 +58,10 @@ pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 mod google_trace_exporter_client;
 mod span_exporter;
 
+use crate::errors::GcloudTraceError;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::InstrumentationScope;
+use opentelemetry_sdk::error::OTelSdkError;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
 use opentelemetry_sdk::trace::{SdkTracerProvider, TracerProviderBuilder};
 use opentelemetry_sdk::{runtime, Resource};
@@ -86,9 +88,7 @@ impl GcpCloudTraceExporterBuilder {
         Ok(Self::new(detected_project_id))
     }
 
-    pub async fn create_provider(
-        &self,
-    ) -> Result<SdkTracerProvider, opentelemetry::trace::TraceError> {
+    pub async fn create_provider(&self) -> Result<SdkTracerProvider, GcloudTraceError> {
         self.create_provider_from_builder(SdkTracerProvider::builder())
             .await
     }
@@ -96,7 +96,7 @@ impl GcpCloudTraceExporterBuilder {
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,
-    ) -> Result<SdkTracerProvider, opentelemetry::trace::TraceError> {
+    ) -> Result<SdkTracerProvider, GcloudTraceError> {
         let exporter = GcpCloudTraceExporter::new(
             &self.google_project_id,
             self.resource
@@ -115,7 +115,7 @@ impl GcpCloudTraceExporterBuilder {
     pub async fn install(
         self,
         provider: &SdkTracerProvider,
-    ) -> Result<opentelemetry_sdk::trace::Tracer, opentelemetry::trace::TraceError> {
+    ) -> Result<opentelemetry_sdk::trace::Tracer, OTelSdkError> {
         let scope = InstrumentationScope::builder("opentelemetry-gcloud")
             .with_version(env!("CARGO_PKG_VERSION"))
             .with_schema_url("https://opentelemetry.io/schemas/1.23.0")

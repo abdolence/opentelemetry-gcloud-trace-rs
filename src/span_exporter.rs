@@ -1,6 +1,6 @@
 use crate::google_trace_exporter_client::GcpCloudTraceExporterClient;
 use crate::TraceExportResult;
-use futures::future::{BoxFuture, TryFutureExt};
+use futures::future::TryFutureExt;
 use futures::FutureExt;
 use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
 use opentelemetry_sdk::{
@@ -31,7 +31,10 @@ impl std::fmt::Debug for GcpCloudTraceExporter {
 }
 
 impl SpanExporter for GcpCloudTraceExporter {
-    fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, OTelSdkResult> {
+    fn export(
+        &self,
+        batch: Vec<SpanData>,
+    ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
         let client = self.gcp_export_client.clone();
         async move {
             client
