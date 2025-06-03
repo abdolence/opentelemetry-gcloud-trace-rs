@@ -14,14 +14,15 @@ opentelemetry-gcloud-trace = "0.19"
 
 ## Compatibility matrix
 
-| opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
-|------------------------------------|-----------------------|-----------------------|------------|
-| 0.19                               | 0.29                  | 0.30                  | 0.27       |
-| 0.18                               | 0.28                  | 0.29                  | 0.26       |
-| 0.17                               | 0.27                  | 0.28                  | 0.26       |
-| 0.16                               | 0.27                  | 0.28                  | 0.25       |
-| 0.15                               | 0.25                  | 0.26                  | 0.25       |
-| 0.12                               | 0.24                  | 0.25                  | 0.25       |
+| opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry    | gcloud-sdk |
+|------------------------------------|-----------------------|--------------------------|------------|
+| 0.20                               | 0.30                  | 0.31 (Not available yet) | 0.27       |
+| 0.19                               | 0.29                  | 0.30                     | 0.27       |
+| 0.18                               | 0.28                  | 0.29                     | 0.26       |
+| 0.17                               | 0.27                  | 0.28                     | 0.26       |
+| 0.16                               | 0.27                  | 0.28                     | 0.25       |
+| 0.15                               | 0.25                  | 0.26                     | 0.25       |
+| 0.12                               | 0.24                  | 0.25                     | 0.25       |
 
 Example:
 
@@ -60,6 +61,27 @@ opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
 opentelemetry-gcloud-trace = "*"
 ```
 
+### Crypto provider error
+
+Depends on your other dependencies you may see the error like:
+
+```
+no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point 
+```
+
+This is because the TLS providers are not installed by default and you can choose different.
+The easiest way to fix is just to include one of the provider, for example:
+
+```toml
+[dependencies]
+rustls = "0.23"
+```
+
+If you have multiple you may need to call `CryptoProvider::install_default()` before using the Firestore client.
+
+```rust
+rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
+```
 
 ## Configuration
 
