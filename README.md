@@ -9,7 +9,7 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.21"
+opentelemetry-gcloud-trace = "0.22"
 ```
 
 ### Crypto provider error
