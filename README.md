@@ -38,10 +38,10 @@ rustls::crypto::ring::default_provider().install_default().expect("Failed to ins
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.22                               | 0.31                  | 0.32                  | 0.28       |
 | 0.21                               | 0.30                  | 0.31                  | 0.28       |
 | 0.20                               | 0.30                  | 0.31                  | 0.27       |
 | 0.19                               | 0.29                  | 0.30                  | 0.27       |
-| 0.18                               | 0.28                  | 0.29                  | 0.26       |
 
 Example:
 
