@@ -9,7 +9,7 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.24"
+opentelemetry-gcloud-trace = "0.25"
 ```
 
 ### Crypto provider error
@@ -38,11 +38,11 @@ rustls::crypto::ring::default_provider().install_default().expect("Failed to ins
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.25                               | 0.32                  | 0.33                  | 0.31       |
 | 0.24                               | 0.32                  | 0.33                  | 0.30       |
 | 0.23                               | 0.31                  | 0.32                  | 0.29       |
 | 0.22                               | 0.31                  | 0.32                  | 0.28       |
-| 0.21                               | 0.30                  | 0.31                  | 0.28       |
-| 0.20                               | 0.30                  | 0.31                  | 0.27       |
+
 
 
 Example:
