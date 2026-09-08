@@ -1,8 +1,8 @@
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
+use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Registry};
+use tracing_subscriber::Registry;
 
 pub fn config_env_var(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|e| format!("{}: {}", name, e))
@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         opentelemetry_sdk::Resource::builder()
             .with_attributes(vec![opentelemetry::KeyValue::new(
                 "service.name",
-                "logging-json-example",
+                "logging-only-api-example",
             )])
             .build(),
     );
@@ -24,13 +24,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
+    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
+            "opentelemetry-gcloud-trace-example",
+        ))
+        .build_async()
+        .await?;
 
     // The OpenTelemetry layer must come first: the log layer reads the span
     // context that layer attaches, and only sees what is registered ahead of
     // it.
     let subscriber = Registry::default()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .with(log_layer);
 
@@ -40,15 +44,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         info!(
             "labels.tenant" = "acme",
+            "labels.region" = "europe-west1",
             "http_request.request_method" = "GET",
             "http_request.request_url" = "https://example.test/orders",
             "http_request.status" = 200,
-            "Serving a request through the JSON sink."
+            "http_request.response_size" = "1024",
+            "http_request.latency" = "250ms",
+            "http_request.remote_ip" = "10.0.0.1",
+            "Serving a request through the Cloud Logging API sink."
         );
 
-        warn!(retries = 2, "Downstream call was retried.");
+        warn!(
+            "labels.tenant" = "acme",
+            retries = 2,
+            "Downstream call was retried."
+        );
     });
 
+    log_handle.shutdown().await;
     tracer_provider.shutdown()?;
 
     Ok(())

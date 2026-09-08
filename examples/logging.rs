@@ -5,7 +5,7 @@
 //! JSON stream by eye at a terminal. `APP_MODE` (default `development`)
 //! chooses between them at startup, and exactly one of the two layers is
 //! active at a time. A host with no logging agent should use
-//! `examples/logging-api.rs` instead, which writes through the Cloud
+//! `examples/logging-only-api.rs` instead, which writes through the Cloud
 //! Logging API directly rather than to stdout.
 
 use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         opentelemetry_sdk::Resource::builder()
             .with_attributes(vec![opentelemetry::KeyValue::new(
                 "service.name",
-                "logging-modes-example",
+                "logging-example",
             )])
             .build(),
     );

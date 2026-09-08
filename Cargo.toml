@@ -57,13 +57,9 @@ cargo-husky = { version = "1.5", default-features = false, features = ["run-for-
 rustls = "0.23"
 
 [[example]]
-name = "logging-api"
+name = "logging-only-api"
 required-features = ["logs-api"]
 
 [[example]]
-name = "logging-json"
-required-features = ["logs"]
-
-[[example]]
-name = "logging-modes"
+name = "logging"
 required-features = ["logs"]

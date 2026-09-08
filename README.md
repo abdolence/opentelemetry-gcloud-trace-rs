@@ -183,7 +183,7 @@ let subscriber = Registry::default()
     .with(json_layer);
 ```
 
-See `examples/logging-modes.rs` for the full runnable version, including the
+See `examples/logging.rs` for the full runnable version, including the
 `APP_MODE` environment switch. Trace correlation keeps working with the JSON
 layer wrapped in `Option` this way, with no extra step needed.
 
