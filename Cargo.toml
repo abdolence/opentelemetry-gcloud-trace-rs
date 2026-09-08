@@ -31,15 +31,21 @@ rsb_derive = "0.5"
 tokio-stream = "0.1"
 futures = "0.3"
 async-trait = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"], optional = true }
+tracing-opentelemetry = { version = "0.33", optional = true }
+serde_json = { version = "1", optional = true }
+time = { version = "0.3", features = ["formatting"], optional = true }
 
 [features]
-default = ["tls-roots"]
+default = ["tls-roots", "logs"]
 tls-roots = ["gcloud-sdk/tls-roots"]
 tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots"]
+logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json", "dep:time"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 opentelemetry = { version = "0.32" }
+opentelemetry_sdk = { version = "0.32", features = ["testing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
 tracing-opentelemetry = { version = "0.33" }

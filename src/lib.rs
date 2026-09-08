@@ -55,6 +55,9 @@
 pub mod errors;
 pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 
+#[cfg(feature = "logs")]
+pub mod logs;
+
 mod google_trace_exporter_client;
 mod span_exporter;
 
