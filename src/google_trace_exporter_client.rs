@@ -18,10 +18,15 @@ pub struct GcpCloudTraceExporterClient {
     >,
     google_project_id: String,
     resource_attributes: Vec<KeyValue>,
+    export_span_events: bool,
 }
 
 impl GcpCloudTraceExporterClient {
-    pub async fn new(google_project_id: &str, resource: Resource) -> TraceExportResult<Self> {
+    pub async fn new(
+        google_project_id: &str,
+        resource: Resource,
+        export_span_events: bool,
+    ) -> TraceExportResult<Self> {
         let client: GoogleApi<
             google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
                 GoogleAuthMiddleware,
@@ -40,6 +45,7 @@ impl GcpCloudTraceExporterClient {
                 .iter()
                 .map(|(k, v)| KeyValue::new(k.clone(), v.clone()))
                 .collect(),
+            export_span_events,
         })
     }
 
@@ -48,29 +54,13 @@ impl GcpCloudTraceExporterClient {
             name: format!("projects/{}", self.google_project_id),
             spans: batch
                 .into_iter()
-                .map(|span| GcpSpan {
-                    name: format!(
-                        "projects/{}/traces/{}/spans/{}",
-                        self.google_project_id,
-                        span.span_context.trace_id(),
-                        span.span_context.span_id()
-                    ),
-                    span_id: span.span_context.span_id().to_string(),
-                    parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID
-                    {
-                        span.parent_span_id.to_string()
-                    } else {
-                        "".to_string()
-                    },
-                    display_name: Some(Self::truncatable_string(span.name.deref(), 128)),
-                    start_time: Some(prost_types::Timestamp::from(span.start_time)),
-                    end_time: Some(prost_types::Timestamp::from(span.end_time)),
-                    attributes: Some(self.convert_span_attrs(&span.attributes)),
-                    time_events: Some(Self::convert_time_events(&span.events)),
-                    links: Some(Self::convert_links(&span.links)),
-                    status: Self::convert_status(&span),
-                    span_kind: Self::convert_span_kind(&span.span_kind).into(),
-                    ..GcpSpan::default()
+                .map(|span| {
+                    Self::convert_span(
+                        &self.google_project_id,
+                        &self.resource_attributes,
+                        self.export_span_events,
+                        span,
+                    )
                 })
                 .collect(),
             ..BatchWriteSpansRequest::default()
@@ -82,6 +72,44 @@ impl GcpCloudTraceExporterClient {
             .await?;
 
         Ok(())
+    }
+
+    fn convert_span(
+        google_project_id: &str,
+        resource_attributes: &[KeyValue],
+        export_span_events: bool,
+        span: SpanData,
+    ) -> GcpSpan {
+        GcpSpan {
+            name: format!(
+                "projects/{}/traces/{}/spans/{}",
+                google_project_id,
+                span.span_context.trace_id(),
+                span.span_context.span_id()
+            ),
+            span_id: span.span_context.span_id().to_string(),
+            parent_span_id: if span.parent_span_id != opentelemetry::trace::SpanId::INVALID {
+                span.parent_span_id.to_string()
+            } else {
+                "".to_string()
+            },
+            display_name: Some(Self::truncatable_string(span.name.deref(), 128)),
+            start_time: Some(prost_types::Timestamp::from(span.start_time)),
+            end_time: Some(prost_types::Timestamp::from(span.end_time)),
+            attributes: Some(Self::convert_span_attrs(
+                &span.attributes,
+                resource_attributes,
+            )),
+            time_events: if export_span_events {
+                Some(Self::convert_time_events(&span.events))
+            } else {
+                None
+            },
+            links: Some(Self::convert_links(&span.links)),
+            status: Self::convert_status(&span),
+            span_kind: Self::convert_span_kind(&span.span_kind).into(),
+            ..GcpSpan::default()
+        }
     }
 
     fn truncatable_string(str: &str, max_len: usize) -> TruncatableString {
@@ -101,12 +129,15 @@ impl GcpCloudTraceExporterClient {
         }
     }
 
-    fn convert_span_attrs(&self, attrs: &[KeyValue]) -> gspan::Attributes {
+    fn convert_span_attrs(
+        attrs: &[KeyValue],
+        resource_attributes: &[KeyValue],
+    ) -> gspan::Attributes {
         const MAX_ATTRS: usize = 32;
         gspan::Attributes {
             attribute_map: attrs
                 .iter()
-                .chain(&self.resource_attributes)
+                .chain(resource_attributes)
                 .take(MAX_ATTRS)
                 .map(|attribute| {
                     (
@@ -248,5 +279,58 @@ impl GcpCloudTraceExporterClient {
             opentelemetry::trace::SpanKind::Consumer => gspan::SpanKind::Consumer,
             opentelemetry::trace::SpanKind::Internal => gspan::SpanKind::Internal,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentelemetry::trace::{TraceContextExt, Tracer, TracerProvider as _};
+    use opentelemetry_sdk::trace::{InMemorySpanExporter, SdkTracerProvider, SimpleSpanProcessor};
+
+    fn span_with_one_event() -> SpanData {
+        let exporter = InMemorySpanExporter::default();
+        let provider = SdkTracerProvider::builder()
+            .with_span_processor(SimpleSpanProcessor::new(exporter.clone()))
+            .build();
+
+        let tracer = provider.tracer("test");
+        tracer.in_span("test-span", |cx| {
+            cx.span().add_event("test-event", vec![]);
+        });
+
+        exporter
+            .get_finished_spans()
+            .expect("in-memory exporter is not shut down")
+            .into_iter()
+            .next()
+            .expect("tracer flushed exactly one span through the simple processor")
+    }
+
+    #[test]
+    fn span_events_are_omitted_by_default() {
+        let span = GcpCloudTraceExporterClient::convert_span(
+            "test-project",
+            &[],
+            false,
+            span_with_one_event(),
+        );
+
+        assert!(span.time_events.is_none());
+    }
+
+    #[test]
+    fn span_events_are_exported_when_enabled() {
+        let span = GcpCloudTraceExporterClient::convert_span(
+            "test-project",
+            &[],
+            true,
+            span_with_one_event(),
+        );
+
+        let time_events = span
+            .time_events
+            .expect("time_events must be set when span events are enabled");
+        assert_eq!(time_events.time_event.len(), 1);
     }
 }

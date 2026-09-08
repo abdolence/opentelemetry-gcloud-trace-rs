@@ -40,6 +40,7 @@ tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots"]
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 opentelemetry = { version = "0.32" }
+opentelemetry_sdk = { version = "0.32", features = ["testing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
 tracing-opentelemetry = { version = "0.33" }
