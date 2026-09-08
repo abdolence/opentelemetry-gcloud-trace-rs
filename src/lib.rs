@@ -1,11 +1,14 @@
-//! # OpenTelemetry Google Cloud Trace Exporter
+//! # OpenTelemetry Google Cloud Trace Exporter and Cloud Logging Layer
 //!
-//! OpenTelemetry exporter implementation for Google Cloud Trace
+//! OpenTelemetry exporter implementation for Google Cloud Trace. The crate
+//! also ships a `tracing_subscriber` layer for Google Cloud Logging that
+//! correlates log lines to Cloud Trace through the public
+//! `tracing-opentelemetry` context API; see the [`logs`] module.
 //!
 //! ## Performance
 //!
 //! For optimal performance, a batch exporter is recommended as the simple exporter will export
-//! each span synchronously on drop. You can enable the [`rt-tokio`], [`rt-tokio-current-thread`]
+//! each span synchronously on drop. You can enable the `rt-tokio`, `rt-tokio-current-thread`
 //! features and specify a runtime on the pipeline to have a batch exporter
 //! configured for you automatically.
 //!

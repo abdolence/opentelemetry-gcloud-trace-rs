@@ -4,11 +4,11 @@ version = "0.26.0"
 authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
 edition = "2021"
 license = "Apache-2.0"
-description = "OpenTelemetry support for Google Cloud Trace"
+description = "OpenTelemetry support for Google Cloud Trace and Cloud Logging"
 homepage = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
 repository = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
 documentation = "https://docs.rs/opentelemetry-gcloud-trace"
-keywords = ["opentelemetry", "metrics", "span", "google", "stackdriver"]
+keywords = ["opentelemetry", "tracing", "logging", "google", "stackdriver"]
 categories = ["api-bindings"]
 readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE", "SECURITY.md"]
@@ -59,3 +59,7 @@ rustls = "0.23"
 [[example]]
 name = "logging-api"
 required-features = ["logs-api"]
+
+[[example]]
+name = "logging-json"
+required-features = ["logs"]
