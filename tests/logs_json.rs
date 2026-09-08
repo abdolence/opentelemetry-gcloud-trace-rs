@@ -355,3 +355,54 @@ fn log_line_correlates_with_the_exported_span() {
     );
     assert_eq!(log_line["logging.googleapis.com/trace_sampled"], true);
 }
+
+#[test]
+fn log_line_correlates_when_layer_is_wrapped_in_option() {
+    let exporter = InMemorySpanExporter::default();
+    let provider = SdkTracerProvider::builder()
+        .with_sampler(Sampler::AlwaysOn)
+        .with_span_processor(SimpleSpanProcessor::new(exporter.clone()))
+        .build();
+    let tracer = provider.tracer("logs-correlation-option-test");
+
+    let buffer = SharedBuffer::default();
+    let log_layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_json_writer(buffer.clone())
+        .build();
+
+    let subscriber = Registry::default()
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(Some(log_layer));
+
+    tracing::subscriber::with_default(subscriber, || {
+        let span = tracing::info_span!("traced-work-option");
+        let _guard = span.enter();
+        tracing::info!("correlated line via option");
+    });
+
+    let exported = exporter
+        .get_finished_spans()
+        .expect("exporter is not shut down")
+        .into_iter()
+        .find(|span| span.name == "traced-work-option")
+        .expect("the span was exported once its guard dropped");
+
+    let lines = buffer.lines();
+    let log_line = lines
+        .into_iter()
+        .find(|line| line["message"] == "correlated line via option")
+        .expect("the log line was written");
+
+    assert_eq!(
+        log_line["logging.googleapis.com/trace"],
+        format!(
+            "projects/test-project/traces/{}",
+            exported.span_context.trace_id()
+        )
+    );
+    assert_eq!(
+        log_line["logging.googleapis.com/spanId"],
+        exported.span_context.span_id().to_string()
+    );
+    assert_eq!(log_line["logging.googleapis.com/trace_sampled"], true);
+}

@@ -184,8 +184,8 @@ let subscriber = Registry::default()
 ```
 
 See `examples/logging-modes.rs` for the full runnable version, including the
-`APP_MODE` environment switch and the extra step a JSON layer built this way
-needs to keep trace correlation working.
+`APP_MODE` environment switch. Trace correlation keeps working with the JSON
+layer wrapped in `Option` this way, with no extra step needed.
 
 ### Cloud Logging API (feature `logs-api`)
 

@@ -7,16 +7,12 @@
 //! active at a time. A host with no logging agent should use
 //! `examples/logging-api.rs` instead, which writes through the Cloud
 //! Logging API directly rather than to stdout.
-//!
-//! Composing the JSON layer through `Option` needs one extra step beyond the
-//! plain composition in the other examples: see the comment above
-//! `on_register_dispatch` below for why, and why it is safe.
 
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingLayer, GcpCloudLoggingLayerBuilder};
+use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Layer, Registry};
+use tracing_subscriber::{EnvFilter, Registry};
 
 pub fn config_env_var(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|e| format!("{}: {}", name, e))
@@ -75,16 +71,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .with(json_layer);
 
     let dispatch = tracing::Dispatch::new(subscriber);
-
-    // `tracing_subscriber`'s blanket `Layer` impl for `Option<L>` does not
-    // forward `on_register_dispatch`, so a JSON layer sitting behind `Some`
-    // never learns its own dispatch and silently loses trace correlation.
-    // This is the only point where reading it back out is safe - every other
-    // layer method runs while a dispatch to this same subscriber is already
-    // in progress, and `get_default` inside that window returns `Dispatch::none()`.
-    if let Some(log_layer) = dispatch.downcast_ref::<GcpCloudLoggingLayer>() {
-        <GcpCloudLoggingLayer as Layer<Registry>>::on_register_dispatch(log_layer, &dispatch);
-    }
 
     tracing::dispatcher::with_default(&dispatch, || {
         let root = span!(Level::INFO, "handle_request");

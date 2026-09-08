@@ -8,6 +8,12 @@
 //! layers registered ahead of it, so registering this layer first, or
 //! omitting the OpenTelemetry layer, silently disables `trace`/`spanId` on
 //! every log line (a warning is printed once to stderr when that happens).
+//! Wrapping this layer in `Option`, `Box<dyn Layer>` or a per-layer filter is
+//! supported and needs no extra step. One caveat: under a scoped
+//! (`tracing::subscriber::with_default`) subscriber with the layer wrapped
+//! that way, correlation instead follows whatever tracing span is currently
+//! entered on the thread, so an event's explicit `parent:` is not honoured in
+//! that specific configuration.
 //!
 //! ```ignore
 //! use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
@@ -181,13 +187,28 @@ pub struct GcpCloudLoggingLayer {
     project_id: String,
     with_source_location: bool,
     sink: LogSink,
-    // Captured from `on_register_dispatch` rather than read via
-    // `tracing::dispatcher::get_default` inside `on_event`: that call is
-    // already nested inside the dispatch that delivered the event, and a
-    // nested `get_default` is documented to see `Dispatch::none()` instead of
-    // the real subscriber, which would silently disable correlation.
+    // Captured from `on_register_dispatch`, needed because a nested
+    // `tracing::dispatcher::get_default` inside `on_event` is documented to
+    // see `Dispatch::none()` under a scoped (`with_default`) subscriber
+    // instead of the real one. A wrapper between this layer and the
+    // subscriber (`Option`, `Box<dyn Layer>`, a per-layer filter) may not
+    // forward `on_register_dispatch`, though, so `on_event` falls back past
+    // this - to `get_default` (which still works for a *global*-default
+    // subscriber, whose fast path ignores the scoped state) and then to the
+    // ambient OpenTelemetry context - when this is empty.
     dispatch: OnceLock<WeakDispatch>,
     missing_otel_layer_warned: Once,
+}
+
+/// The OpenTelemetry context active on this thread, if one is and it names a
+/// valid span. Meaningful even when the caller reached it with no enclosing
+/// tracing span to look up, since `tracing-opentelemetry`'s context
+/// activation (on by default) sets this independently of that layer's own
+/// dispatch or of `tracing`'s per-thread scoped-dispatch state.
+fn current_active_otel_context() -> Option<opentelemetry::Context> {
+    use opentelemetry::trace::TraceContextExt;
+    let current = opentelemetry::Context::current();
+    (current.has_active_span() && current.span().span_context().is_valid()).then_some(current)
 }
 
 impl GcpCloudLoggingLayer {
@@ -225,28 +246,56 @@ where
             span.map(|span_ref| span_ref.id())
         };
 
-        let mut correlation = None;
-        if let Some(span_id) = resolved_span_id {
-            let otel_context = self
-                .dispatch
-                .get()
-                .and_then(WeakDispatch::upgrade)
-                .and_then(|dispatch| tracing_opentelemetry::get_otel_context(&span_id, &dispatch));
-            match otel_context {
-                Some(cx) => {
-                    use opentelemetry::trace::TraceContextExt;
-                    let span_context = cx.span().span_context().clone();
-                    if span_context.is_valid() {
-                        correlation = Some(format::TraceCorrelation {
-                            trace_id: span_context.trace_id().to_string(),
-                            span_id: span_context.span_id().to_string(),
-                            sampled: span_context.is_sampled(),
-                        });
-                    }
-                }
-                None => self.warn_missing_otel_layer(),
+        // Three ways to reach the span context, tried in order, because none
+        // alone covers every way this layer can be composed:
+        // - the dispatch captured in `on_register_dispatch` is `None` when a
+        //   wrapper (`Option`, `Box<dyn Layer>`, a per-layer filter) sits
+        //   between this layer and the subscriber and does not forward that
+        //   call;
+        // - `tracing::dispatcher::get_default` recovers it in that case for a
+        //   global-default subscriber, since its fast path returns the real
+        //   dispatch instead of `Dispatch::none()` even nested inside the
+        //   dispatch that delivered this event;
+        // - neither sees anything under a scoped (`with_default`) subscriber
+        //   with the layer wrapped, so the OpenTelemetry context active on
+        //   this thread - set on span entry by `tracing-opentelemetry`'s
+        //   context activation, unless the caller disabled it - is the last
+        //   resort. It follows the currently entered span rather than an
+        //   event's explicit `parent:`.
+        let otel_context = resolved_span_id
+            .as_ref()
+            .and_then(|span_id| {
+                self.dispatch
+                    .get()
+                    .and_then(WeakDispatch::upgrade)
+                    .and_then(|dispatch| {
+                        tracing_opentelemetry::get_otel_context(span_id, &dispatch)
+                    })
+                    .or_else(|| {
+                        tracing::dispatcher::get_default(|dispatch| {
+                            tracing_opentelemetry::get_otel_context(span_id, dispatch)
+                        })
+                    })
+            })
+            .or_else(current_active_otel_context);
+
+        let correlation = match otel_context {
+            Some(cx) => {
+                use opentelemetry::trace::TraceContextExt;
+                let span_context = cx.span().span_context().clone();
+                span_context.is_valid().then(|| format::TraceCorrelation {
+                    trace_id: span_context.trace_id().to_string(),
+                    span_id: span_context.span_id().to_string(),
+                    sampled: span_context.is_sampled(),
+                })
             }
-        }
+            None => {
+                if resolved_span_id.is_some() {
+                    self.warn_missing_otel_layer();
+                }
+                None
+            }
+        };
 
         let record = format::build_log_record(
             event,
