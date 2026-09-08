@@ -156,6 +156,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 ```
 
+### One application, two modes
+
+A service usually wants the console layer locally and the JSON layer once
+deployed, chosen by one `match` rather than duplicated `main` functions.
+`Option<Layer>` implements `Layer`, so exactly one sink is active per mode
+without a boxed trait object or two separate subscriber types:
+
+```rust
+enum AppMode {
+    Development,
+    Production,
+}
+
+let (console_layer, json_layer) = match mode {
+    AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
+    AppMode::Production => (
+        None,
+        Some(GcpCloudLoggingLayerBuilder::new(project_id).build()),
+    ),
+};
+
+let subscriber = Registry::default()
+    .with(tracing_opentelemetry::layer().with_tracer(tracer))
+    .with(console_layer)
+    .with(json_layer);
+```
+
+See `examples/logging-modes.rs` for the full runnable version, including the
+`APP_MODE` environment switch and the extra step a JSON layer built this way
+needs to keep trace correlation working.
+
 ### Cloud Logging API (feature `logs-api`)
 
 For a host with no logging agent, `GcpCloudLoggingApiConfig` batches entries
