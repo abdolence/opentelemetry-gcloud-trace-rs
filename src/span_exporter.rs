@@ -15,10 +15,15 @@ pub struct GcpCloudTraceExporter {
 }
 
 impl GcpCloudTraceExporter {
-    pub async fn new(google_project_id: &str, resource: Resource) -> TraceExportResult<Self> {
+    pub async fn new(
+        google_project_id: &str,
+        resource: Resource,
+        export_span_events: bool,
+    ) -> TraceExportResult<Self> {
         Ok(Self {
             gcp_export_client: Arc::new(
-                GcpCloudTraceExporterClient::new(google_project_id, resource).await?,
+                GcpCloudTraceExporterClient::new(google_project_id, resource, export_span_events)
+                    .await?,
             ),
         })
     }

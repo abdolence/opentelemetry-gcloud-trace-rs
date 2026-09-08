@@ -77,6 +77,9 @@ pub type SdkTracer = opentelemetry_sdk::trace::Tracer;
 pub struct GcpCloudTraceExporterBuilder {
     pub google_project_id: String,
     pub resource: Option<Resource>,
+    /// Exports span events to Cloud Trace as `time_events` annotations. Defaults to `false`
+    /// since span events are commonly captured by a logging layer as well.
+    pub span_events: Option<bool>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -105,6 +108,7 @@ impl GcpCloudTraceExporterBuilder {
             self.resource
                 .clone()
                 .unwrap_or_else(|| Resource::builder_empty().build()),
+            self.span_events.unwrap_or(false),
         )
         .await?;
 
