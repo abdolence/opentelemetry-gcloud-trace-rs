@@ -20,14 +20,20 @@
 //!     .with(log_layer);
 //! ```
 //!
-//! This module only implements the JSON-lines sink. [`GcpCloudLoggingLayer`]
-//! holds its sink behind a private enum rather than a type parameter so a
-//! future Cloud Logging API sink can be added as a second variant without
-//! changing the layer's type, and callers can keep composing subscribers the
-//! same way regardless of which sink a layer was built with.
+//! Two sinks are available and exactly one is chosen when the layer is built:
+//! JSON lines to a writer (default stdout, for hosts whose logging agent
+//! collects them), or the Cloud Logging API under the `logs-api` feature (for
+//! hosts with no agent). [`GcpCloudLoggingLayer`] holds its sink behind a
+//! private enum rather than a type parameter, so callers compose subscribers
+//! the same way regardless of which sink a layer was built with.
 
+#[cfg(feature = "logs-api")]
+mod api;
 mod format;
 mod json_sink;
+
+#[cfg(feature = "logs-api")]
+pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource};
 
 use crate::errors::{GcloudTraceError, GcloudTraceSystemError};
 use crate::TraceExportResult;
@@ -43,6 +49,8 @@ use tracing_subscriber::Layer;
 
 enum LogSink {
     Json(JsonSink),
+    #[cfg(feature = "logs-api")]
+    CloudLoggingApi(api::ApiSink),
 }
 
 /// Builds a [`GcpCloudLoggingLayer`].
@@ -100,6 +108,53 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
             with_source_location: self.with_source_location,
             make_writer,
         }
+    }
+
+    /// Switches the layer to write through the Cloud Logging API instead of
+    /// JSON lines. The returned builder has [`Self::build`] replaced by
+    /// `build_async`, so a sink is chosen exactly once and cannot be
+    /// contradicted later.
+    #[cfg(feature = "logs-api")]
+    pub fn with_cloud_logging_api(
+        self,
+        config: GcpCloudLoggingApiConfig,
+    ) -> GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
+        GcpCloudLoggingLayerBuilder {
+            project_id: self.project_id,
+            with_source_location: self.with_source_location,
+            make_writer: config,
+        }
+    }
+}
+
+#[cfg(feature = "logs-api")]
+impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
+    /// Connects to the Cloud Logging API and starts the background task that
+    /// writes batches of entries.
+    ///
+    /// Must be called from within a Tokio runtime, whose handle the background
+    /// task is spawned on; the entries are written for as long as that runtime
+    /// lives. The returned handle flushes and stops the task - see
+    /// [`GcpCloudLoggingHandle`], and note that dropping it without calling
+    /// `shutdown` leaves queued entries unwritten.
+    pub async fn build_async(
+        self,
+    ) -> TraceExportResult<(GcpCloudLoggingLayer, GcpCloudLoggingHandle)> {
+        let config = self.make_writer;
+        let resource = config.resource_or_default(&self.project_id);
+        let log_name = format!("projects/{}/logs/{}", self.project_id, config.log_id);
+        let sink = std::sync::Arc::new(api::GcloudLogEntrySink::new().await?);
+        let (api_sink, handle) = api::spawn(&config, log_name, resource, sink);
+        Ok((
+            GcpCloudLoggingLayer {
+                project_id: self.project_id,
+                with_source_location: self.with_source_location,
+                sink: LogSink::CloudLoggingApi(api_sink),
+                dispatch: OnceLock::new(),
+                missing_otel_layer_warned: Once::new(),
+            },
+            handle,
+        ))
     }
 }
 
@@ -202,6 +257,8 @@ where
 
         match &self.sink {
             LogSink::Json(sink) => sink.write(&record, event.metadata()),
+            #[cfg(feature = "logs-api")]
+            LogSink::CloudLoggingApi(sink) => sink.send(record),
         }
     }
 }
