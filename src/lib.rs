@@ -1,11 +1,14 @@
-//! # OpenTelemetry Google Cloud Trace Exporter
+//! # OpenTelemetry Google Cloud Trace Exporter and Cloud Logging Layer
 //!
-//! OpenTelemetry exporter implementation for Google Cloud Trace
+//! OpenTelemetry exporter implementation for Google Cloud Trace. The crate
+//! also ships a `tracing_subscriber` layer for Google Cloud Logging that
+//! correlates log lines to Cloud Trace through the public
+//! `tracing-opentelemetry` context API; see the [`logs`] module.
 //!
 //! ## Performance
 //!
 //! For optimal performance, a batch exporter is recommended as the simple exporter will export
-//! each span synchronously on drop. You can enable the [`rt-tokio`], [`rt-tokio-current-thread`]
+//! each span synchronously on drop. You can enable the `rt-tokio`, `rt-tokio-current-thread`
 //! features and specify a runtime on the pipeline to have a batch exporter
 //! configured for you automatically.
 //!
@@ -55,6 +58,9 @@
 pub mod errors;
 pub type TraceExportResult<E> = Result<E, crate::errors::GcloudTraceError>;
 
+#[cfg(feature = "logs")]
+pub mod logs;
+
 mod google_trace_exporter_client;
 mod span_exporter;
 
@@ -74,6 +80,9 @@ pub type SdkTracer = opentelemetry_sdk::trace::Tracer;
 pub struct GcpCloudTraceExporterBuilder {
     pub google_project_id: String,
     pub resource: Option<Resource>,
+    /// Exports span events to Cloud Trace as `time_events` annotations. Defaults to `false`
+    /// since span events are commonly captured by a logging layer as well.
+    pub span_events: Option<bool>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -102,6 +111,7 @@ impl GcpCloudTraceExporterBuilder {
             self.resource
                 .clone()
                 .unwrap_or_else(|| Resource::builder_empty().build()),
+            self.span_events.unwrap_or(false),
         )
         .await?;
 
