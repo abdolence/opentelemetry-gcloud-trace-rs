@@ -39,7 +39,7 @@ async fn fetch_from_db(order_id: &str) -> u64 {
     rows
 }
 
-#[instrument(skip_all, fields(attempt))]
+#[instrument]
 async fn payment_attempt(attempt: u32) -> Result<(), String> {
     tokio::time::sleep(Duration::from_millis(30)).await;
     if attempt < 3 {
@@ -56,8 +56,7 @@ async fn payment_attempt(attempt: u32) -> Result<(), String> {
 /// task's thread.
 async fn call_payment_provider() -> Result<(), String> {
     for attempt in 1..=3u32 {
-        let span = info_span!("payment_attempt", attempt);
-        let result = payment_attempt(attempt).instrument(span).await;
+        let result = payment_attempt(attempt).await;
         match result {
             Ok(()) => {
                 info!(attempt, "payment captured");
@@ -82,12 +81,14 @@ async fn load_order(order_id: &str) -> Result<u64, String> {
     Ok(rows)
 }
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(order_id = %order_id))]
 async fn send_notification(order_id: &str) -> Result<(), String> {
     tokio::time::sleep(Duration::from_millis(10)).await;
-    Err(format!(
-        "no notification channel configured for order {order_id}"
-    ))
+    let err = format!("no notification channel configured for order {order_id}");
+    // Logged here rather than by the caller so the ERROR entry sits under
+    // the `send_notification` span in the waterfall, not under the request.
+    error!(error = %err, "failed to notify customer of checkout");
+    Err(err)
 }
 
 #[tokio::main]
@@ -146,8 +147,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(ref err) => error!(error = %err, "order could not be loaded"),
         }
 
-        if let Err(err) = send_notification("order-42").await {
-            error!(error = %err, "failed to notify customer of checkout");
+        if send_notification("order-42").await.is_err() {
+            warn!("checkout completed without customer notification");
         }
 
         root.context().span().span_context().trace_id()
