@@ -4,14 +4,21 @@
 //! under the span that emitted it, or open one of the log entries in Logs
 //! Explorer and follow its trace link back to the waterfall below.
 //!
+//! `APP_MODE` (default `development`) picks the log sink the same way
+//! `examples/logging.rs` does: `development` prints human-readable lines to
+//! the console, while `production` writes JSON lines to stdout, which is what
+//! a GKE, Cloud Run or GCE logging agent collects, and it is only once the
+//! agent has ingested those lines that the correlation described above
+//! appears in the console.
+//!
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs
 //! ```
 
 use opentelemetry::trace::TraceContextExt;
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
+use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
 use std::time::Duration;
 use tracing::*;
@@ -21,6 +28,21 @@ use tracing_subscriber::{EnvFilter, Registry};
 
 pub fn config_env_var(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|e| format!("{}: {}", name, e))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppMode {
+    Development,
+    Production,
+}
+
+impl AppMode {
+    fn from_env() -> Self {
+        match std::env::var("APP_MODE").as_deref() {
+            Ok("production") => AppMode::Production,
+            _ => AppMode::Development,
+        }
+    }
 }
 
 #[instrument(skip_all, fields(user_id = %user_id))]
@@ -94,6 +116,7 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let project_id = config_env_var("PROJECT_ID")?;
+    let mode = AppMode::from_env();
 
     let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
         opentelemetry_sdk::Resource::builder()
@@ -107,20 +130,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id.clone())
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
-            "opentelemetry-gcloud-trace-example",
-        ))
-        .build_async()
-        .await?;
+    // `Option<Layer>` implements `Layer`, so both sinks can be built from one
+    // `match` and composed unconditionally below - the inactive sink is a
+    // `None` that costs nothing on the subscriber.
+    let (console_layer, json_layer) = match mode {
+        AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
+        AppMode::Production => (
+            None,
+            Some(GcpCloudLoggingLayerBuilder::new(project_id.clone()).build()),
+        ),
+    };
 
-    // The OpenTelemetry layer must come first: the log layer reads the span
-    // context that layer attaches, and only sees what is registered ahead of
-    // it.
+    // The OpenTelemetry layer must come first: the log layers read the span
+    // context that layer attaches, and only see what is registered ahead of
+    // them.
     let subscriber = Registry::default()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(log_layer);
+        .with(console_layer)
+        .with(json_layer);
 
     // A global subscriber, not a scoped `with_default`, because the workload
     // below carries a span across a `tokio::spawn` boundary onto a different
@@ -155,16 +183,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
     drop(root);
 
-    log_handle.shutdown().await;
-    tracer_provider.shutdown()?;
+    info!(
+        trace_id = %trace_id,
+        trace_explorer = %format!(
+            "https://console.cloud.google.com/traces/list?project={project_id}&tid={trace_id}"
+        ),
+        logs_explorer = %format!(
+            "https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{project_id}%2Ftraces%2F{trace_id}%22?project={project_id}"
+        ),
+        "request handled; open the trace in the console"
+    );
 
-    println!("trace id: {trace_id}");
-    println!(
-        "Trace Explorer: https://console.cloud.google.com/traces/list?project={project_id}&tid={trace_id}"
-    );
-    println!(
-        "Logs Explorer:  https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{project_id}%2Ftraces%2F{trace_id}%22?project={project_id}"
-    );
+    tracer_provider.shutdown()?;
 
     Ok(())
 }
