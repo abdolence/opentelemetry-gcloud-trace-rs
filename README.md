@@ -232,6 +232,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 `GcpCloudLoggingApiConfig` also takes `with_resource`, `with_batch_size`,
 `with_flush_interval` and `with_queue_capacity`; see its docs for defaults.
 
+See `examples/traces-and-logs.rs` for an end-to-end demo of a multi-level span
+tree — a request handler with nested authentication, database and payment
+retry spans, one of them running on a spawned task — with a correlated log
+line at every level:
+
+```sh
+PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
+```
+
+Open the printed trace in Trace Explorer and its "Logs" panel lists each event
+under the span that emitted it; open one of the log entries in Logs Explorer
+instead and its trace link leads back to the same waterfall.
+
 ### Layer ordering
 
 Register `tracing_opentelemetry::layer()` before `GcpCloudLoggingLayer` on the
