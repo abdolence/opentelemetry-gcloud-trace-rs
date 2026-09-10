@@ -47,42 +47,81 @@ rustls::crypto::ring::default_provider().install_default().expect("Failed to ins
 
 
 
-Example:
+## Example: traces and correlated logs
+
+This example runs a request handler with nested spans, one of them on a spawned task, and a log line at every level, so the Google Cloud console shows each log nested under the span that emitted it. The setup below, condensed from its `main` function and one instrumented function, is what makes that correlation work; the full runnable version, with the complete span tree and error handling, is `examples/traces-and-logs.rs`.
 
 ```rust
+use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
+use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
+use tracing::*;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{EnvFilter, Registry};
 
-let gcp_trace_exporter = GcpCloudTraceExporterBuilder::for_default_project_id().await?; // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+#[instrument(skip_all, fields(order_id = %order_id))]
+async fn send_notification(order_id: &str) -> Result<(), String> {
+    info!(order_id, "sending checkout notification");
+    let err = format!("no notification channel configured for order {order_id}");
+    error!(error = %err, "failed to notify customer of checkout");
+    Err(err)
+}
 
-let tracer_provider = gcp_trace_exporter.create_provider().await?;
-let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let project_id = "my-gcp-project-id".to_string();
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_attributes(vec![opentelemetry::KeyValue::new("service.name", "my-service")])
+            .build(),
+    );
+    let tracer_provider = gcp_trace_exporter.create_provider().await?;
+    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-opentelemetry::global::set_tracer_provider(tracer_provider.clone());
+    // Console locally, JSON where an agent collects stdout; both may be built
+    // as `Option<Layer>`, see "One application, two modes" below.
+    let console_layer = tracing_subscriber::fmt::layer();
+    let json_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
 
-tracer.in_span("doing_work_parent", |cx| {
-  // ...
-});
+    // The OpenTelemetry layer must come first: the log layer reads the span
+    // context that layer attaches, and only sees what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(console_layer)
+        .with(json_layer);
+    tracing::subscriber::set_global_default(subscriber)?;
 
-tracer_provider.shutdown()?;
+    let _ = send_notification("order-42").await;
 
-
+    tracer_provider.shutdown()?;
+    Ok(())
+}
 ```
 
-All examples are available at [examples](examples) directory.
+The full example's default development mode additionally sends the same entries through the Cloud Logging API (feature `logs-api`), so the correlation is visible from a laptop; that double sink is a demo convenience, not a production pattern.
 
-To run an example use with environment variables:
+Run it with:
+```sh
+PROJECT_ID=<your-google-project-id> cargo run --example traces-and-logs --features logs-api
 ```
-# PROJECT_ID=<your-google-project-id> cargo run --example enable-exporter
-```
+The last console line prints the trace id together with direct Trace Explorer and Logs Explorer links.
 
-![Google Cloud Console Example](docs/img/gcloud-example.png)
+![Trace with correlated logs in the Google Cloud console](docs/img/gcloud-traces-and-logs.png)
 
+All examples are available at [examples](examples) directory. A trace-only setup, without any logging layer, is in `examples/enable-exporter.rs` and `examples/tracing-exporter.rs`.
 
 ```toml
 [dependencies]
 opentelemetry = { version = "*", features = [] }
 opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
 opentelemetry-gcloud-trace = "*"
+tracing = "*"
+tracing-subscriber = { version = "*", features = ["env-filter"] }
+tracing-opentelemetry = "*"
 ```
+
+`opentelemetry-gcloud-trace`'s `logs` feature, used by `GcpCloudLoggingLayerBuilder` above, is on by default; `logs-api` is opt-in and only needed for the Cloud Logging API sink described above.
 
 ## Configuration
 
@@ -186,6 +225,8 @@ let subscriber = Registry::default()
 See `examples/logging.rs` for the full runnable version, including the
 `APP_MODE` environment switch. Trace correlation keeps working with the JSON
 layer wrapped in `Option` this way, with no extra step needed.
+
+The main example above, `examples/traces-and-logs.rs`, is the full runnable version of this same two-mode setup, with a multi-level span tree and a correlated log line at every level.
 
 ### Cloud Logging API (feature `logs-api`)
 

@@ -63,3 +63,7 @@ required-features = ["logs-api"]
 [[example]]
 name = "logging"
 required-features = ["logs"]
+
+[[example]]
+name = "traces-and-logs"
+required-features = ["logs-api"]
