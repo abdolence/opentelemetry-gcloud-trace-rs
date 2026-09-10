@@ -4,21 +4,29 @@
 //! under the span that emitted it, or open one of the log entries in Logs
 //! Explorer and follow its trace link back to the waterfall below.
 //!
-//! `APP_MODE` (default `development`) picks the log sink the same way
-//! `examples/logging.rs` does: `development` prints human-readable lines to
-//! the console, while `production` writes JSON lines to stdout, which is what
-//! a GKE, Cloud Run or GCE logging agent collects, and it is only once the
-//! agent has ingested those lines that the correlation described above
-//! appears in the console.
+//! `APP_MODE` (default `development`) picks the log sink. `development`
+//! prints human-readable lines to the console and, as a demo convenience,
+//! also ships the same entries through the Cloud Logging API, so a run from
+//! a laptop shows the trace/log correlation in the console immediately, with
+//! no logging agent required. `production` writes JSON lines to stdout only,
+//! which is what a GKE, Cloud Run or GCE logging agent collects, and it is
+//! only once the agent has ingested those lines that the correlation appears
+//! in the console.
 //!
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs
+//! PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
+//! ```
+//!
+//! or, for the JSON-only variant:
+//!
+//! ```sh
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs-api
 //! ```
 
 use opentelemetry::trace::TraceContextExt;
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
+use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
 use std::time::Duration;
 use tracing::*;
@@ -130,12 +138,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    // `Option<Layer>` implements `Layer`, so both sinks can be built from one
-    // `match` and composed unconditionally below - the inactive sink is a
-    // `None` that costs nothing on the subscriber.
-    let (console_layer, json_layer) = match mode {
-        AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
+    // `Option<Layer>` implements `Layer`, so every sink can be built from one
+    // `match` and composed unconditionally below - an inactive sink is a
+    // `None` that costs nothing on the subscriber. Development mode writes
+    // every event twice, to the terminal and to the Cloud Logging API,
+    // purely so that a run from a laptop shows the correlated entries in the
+    // console with nothing else to set up. A real service picks one sink:
+    // the JSON layer where an agent collects stdout, or the API layer where
+    // none does - never both.
+    let (console_layer, api_layer, api_handle, json_layer) = match mode {
+        AppMode::Development => {
+            let (api_layer, api_handle) = GcpCloudLoggingLayerBuilder::new(project_id.clone())
+                .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
+                    "opentelemetry-gcloud-trace-example",
+                ))
+                .build_async()
+                .await?;
+            (
+                Some(tracing_subscriber::fmt::layer()),
+                Some(api_layer),
+                Some(api_handle),
+                None,
+            )
+        }
         AppMode::Production => (
+            None,
+            None,
             None,
             Some(GcpCloudLoggingLayerBuilder::new(project_id.clone()).build()),
         ),
@@ -148,6 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .with(console_layer)
+        .with(api_layer)
         .with(json_layer);
 
     // A global subscriber, not a scoped `with_default`, because the workload
@@ -194,6 +223,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "request handled; open the trace in the console"
     );
 
+    if let Some(handle) = api_handle {
+        handle.shutdown().await;
+    }
     tracer_provider.shutdown()?;
 
     Ok(())

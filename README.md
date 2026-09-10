@@ -193,12 +193,13 @@ retry spans, one of them running on a spawned task — with a correlated log
 line at every level. It uses the same `APP_MODE` switch:
 
 ```sh
-PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs
+PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
 ```
 
-The per-span correlation shows up in the console once the JSON lines have been
-collected by a logging agent, which is what happens by default on GKE, Cloud
-Run and GCE.
+In its default `development` mode the example also sends the same entries
+through the Cloud Logging API, so the correlation is visible in the console
+straight from a laptop, with no logging agent involved. `APP_MODE=production`
+writes JSON only, for a host whose agent collects stdout.
 
 ### Cloud Logging API (feature `logs-api`)
 
