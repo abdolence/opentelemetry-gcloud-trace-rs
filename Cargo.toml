@@ -32,7 +32,7 @@ tokio-stream = "0.1"
 futures = "0.3"
 async-trait = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"], optional = true }
-tracing-opentelemetry = { version = "0.33", optional = true }
+tracing-opentelemetry = { version = "0.34", optional = true }
 serde_json = { version = "1", optional = true }
 time = { version = "0.3", features = ["formatting", "parsing"], optional = true }
 tokio = { version = "1", features = ["sync", "rt", "time"], optional = true }
@@ -52,7 +52,7 @@ opentelemetry = { version = "0.33" }
 opentelemetry_sdk = { version = "0.33", features = ["testing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
-tracing-opentelemetry = { version = "0.33" }
+tracing-opentelemetry = { version = "0.34" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
 rustls = "0.23"
 
