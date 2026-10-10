@@ -1,8 +1,9 @@
 [package]
 name = "opentelemetry-gcloud-trace"
-version = "0.28.0"
+version = "0.29.0"
 authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
 edition = "2021"
+rust-version = "1.91"
 license = "Apache-2.0"
 description = "OpenTelemetry support for Google Cloud Trace and Cloud Logging"
 homepage = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
@@ -25,7 +26,7 @@ tracing = "0.1"
 opentelemetry = { version = "0.33" }
 opentelemetry_sdk = { version = "0.33", features = ["rt-tokio", "experimental_trace_batch_span_processor_with_async_runtime"] }
 opentelemetry-semantic-conventions = { version = "0.33" }
-gcloud-sdk = { version = "0.32", features = ["google-devtools-cloudtrace-v2"], default-features = false }
+gcloud-sdk = { version = "0.33", features = ["google-devtools-cloudtrace-v2"], default-features = false }
 rvstruct = "0.3"
 rsb_derive = "0.5"
 tokio-stream = "0.1"
@@ -38,9 +39,13 @@ time = { version = "0.3", features = ["formatting", "parsing"], optional = true 
 tokio = { version = "1", features = ["sync", "rt", "time"], optional = true }
 
 [features]
-default = ["tls-roots", "logs"]
+default = ["tls-roots", "logs", "auth-default-crypto"]
 tls-roots = ["gcloud-sdk/tls-roots"]
 tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots"]
+# The rustls crypto provider google-cloud-auth signs service account keys with.
+# Without it, or another provider installed by the application, building the
+# exporter fails with `ErrorKind::CryptoProviderMissing`.
+auth-default-crypto = ["gcloud-sdk/auth-default-crypto"]
 logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json", "dep:time"]
 # `gcloud-sdk/google-logging-v2` already pulls in `google.logging.type` and
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
@@ -55,6 +60,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
 tracing-opentelemetry = { version = "0.34" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
 rustls = "0.23"
+
+# gcloud-sdk 0.33 is not on crates.io yet; remove this once it is published.
+[patch.crates-io]
+gcloud-sdk = { git = "https://github.com/abdolence/gcloud-sdk-rs", branch = "feat/google-cloud-auth" }
 
 [[example]]
 name = "logging-only-api"
