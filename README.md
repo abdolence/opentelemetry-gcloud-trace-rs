@@ -9,35 +9,39 @@
 Cargo.toml:
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.28"
+opentelemetry-gcloud-trace = "0.29"
 ```
 
-### Crypto provider error
+Minimum supported Rust version is 1.91.
 
-Depends on your other dependencies you may see the error like:
+### Crypto provider
 
-```
-no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point 
-```
+The default `auth-default-crypto` feature brings the aws-lc-rs rustls provider that `google-cloud-auth` needs to sign service account keys.
 
-This is because the TLS providers are not installed by default and you can choose different.
-The easiest way to fix is just to include one of the provider, for example:
+With `default-features = false` and without `auth-default-crypto`, install a rustls `CryptoProvider` before creating the exporter or the logging layer, otherwise it fails with `CryptoProviderMissing` when the credentials are a service account key:
 
 ```toml
 [dependencies]
 rustls = "0.23"
 ```
 
-If you have multiple you may need to call `CryptoProvider::install_default()` before using the Firestore client.
-
 ```rust
 rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
 ```
+
+If you see the error like:
+
+```
+no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point
+```
+
+you have more than one rustls provider in your dependencies, and you need to call `CryptoProvider::install_default()` as above before creating the exporter.
 
 ## Compatibility matrix
 
 | opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
 |------------------------------------|-----------------------|-----------------------|------------|
+| 0.29                               | 0.33                  | 0.34                  | 0.33       |
 | 0.28                               | 0.33                  | 0.34                  | 0.32       |
 | 0.27                               | 0.32                  | 0.33                  | 0.32       |
 | 0.26                               | 0.32                  | 0.33                  | 0.32       |
@@ -330,8 +334,9 @@ listed above are camel-cased, matching Google's own field names.
 
 ## TLS related features
 Cargo provides support for different TLS features for dependencies:
-- `tls-roots`: default feature to support native TLS roots
-- `tls-webpki-roots`: feature to switch to webpki crate roots
+- `tls-roots`: default feature to support native TLS roots;
+- `tls-webpki-roots`: feature to switch to webpki crate roots;
+- `auth-default-crypto`: default feature with the rustls crypto provider for `google-cloud-auth`, see [Crypto provider](#crypto-provider).
 
 ## Licence
 Apache Software License (ASL)
