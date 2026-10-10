@@ -1,9 +1,16 @@
-//! # OpenTelemetry Google Cloud Trace Exporter and Cloud Logging Layer
+//! # Google Cloud Trace and Cloud Logging for OpenTelemetry and tracing
 //!
-//! OpenTelemetry exporter implementation for Google Cloud Trace. The crate
-//! also ships a `tracing_subscriber` layer for Google Cloud Logging that
-//! correlates log lines to Cloud Trace through the public
-//! `tracing-opentelemetry` context API; see the [`logs`] module.
+//! The crate covers two uses, separately or together:
+//! - an OpenTelemetry span exporter for Google Cloud Trace,
+//!   [`GcpCloudTraceExporterBuilder`];
+//! - a `tracing-subscriber` layer for the `tracing` crate that writes
+//!   structured Google Cloud Logging entries, correlated with the trace and
+//!   span that emitted them through the public `tracing-opentelemetry`
+//!   context API; see the [`logs`] module.
+//!
+//! The `logs` feature (default) enables the logging layer with JSON lines
+//! written to stdout; `logs-api` adds a sink writing through the Cloud
+//! Logging API.
 //!
 //! ## Performance
 //!
