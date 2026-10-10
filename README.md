@@ -2,7 +2,16 @@
 ![tests and formatting](https://github.com/abdolence/opentelemetry-gcloud-trace-rs/workflows/tests%20&amp;%20formatting/badge.svg)
 ![security audit](https://github.com/abdolence/opentelemetry-gcloud-trace-rs/workflows/security%20audit/badge.svg)
 
-# OpenTelemetry support for Google Cloud Trace and Google Cloud Logging
+# Google Cloud Trace and Cloud Logging for OpenTelemetry and tracing
+
+The crate covers two uses, separately or together:
+- an OpenTelemetry span exporter for Google Cloud Trace;
+- a `tracing-subscriber` layer for the `tracing` crate that writes structured Google Cloud Logging entries, correlated with the trace and span that emitted them, so the Google Cloud console shows each log line under its trace.
+
+Features:
+- the trace exporter is always available and needs no feature;
+- `logs` (default): the logging layer, writing JSON lines to stdout for GKE, Cloud Run or a host with the Cloud Logging agent;
+- `logs-api`: the logging layer writes through the Cloud Logging API, for a host with no logging agent.
 
 ## Quick start
 
