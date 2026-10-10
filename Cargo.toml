@@ -61,10 +61,6 @@ tracing-opentelemetry = { version = "0.34" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
 rustls = "0.23"
 
-# gcloud-sdk 0.33 is not on crates.io yet; remove this once it is published.
-[patch.crates-io]
-gcloud-sdk = { git = "https://github.com/abdolence/gcloud-sdk-rs", branch = "feat/google-cloud-auth" }
-
 [[example]]
 name = "logging-only-api"
 required-features = ["logs-api"]
