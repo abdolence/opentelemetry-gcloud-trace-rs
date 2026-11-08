@@ -148,6 +148,17 @@ You can specify trace configuration using `with_tracer_provider_builder`:
    ));
 ```
 
+Spans are exported in batches. `with_max_export_timeout` bounds how long a batch export may take before
+the batch is dropped (30 seconds by default). A shutdown exports every batch queued ahead of it one after
+the other, and each may take the full timeout, so shutdown can take the timeout once per 512 queued spans,
+rounded up. On a platform that kills the process shortly after SIGTERM, such as Cloud Run, keep that total
+below the time the platform allows:
+
+```rust
+   let exporter = GcpCloudTraceExporterBuilder::new(google_project_id)
+         .with_max_export_timeout(Duration::from_secs(3));
+```
+
 ## Limitations
 - This exporter doesn't support any other runtimes except Tokio.
 
