@@ -148,6 +148,15 @@ You can specify trace configuration using `with_tracer_provider_builder`:
    ));
 ```
 
+Spans are exported in batches. `with_max_export_timeout` bounds how long a single batch export may take
+(30 seconds by default). A shutdown waits for the export in flight and for a final one, so on a platform
+that kills the process shortly after SIGTERM, such as Cloud Run, set it below that window:
+
+```rust
+   let exporter = GcpCloudTraceExporterBuilder::new(google_project_id)
+         .with_max_export_timeout(Duration::from_secs(3));
+```
+
 ## Limitations
 - This exporter doesn't support any other runtimes except Tokio.
 

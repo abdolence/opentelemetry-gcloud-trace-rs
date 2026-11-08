@@ -75,11 +75,15 @@ use crate::errors::GcloudTraceError;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::InstrumentationScope;
 use opentelemetry_sdk::error::OTelSdkError;
+use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
-use opentelemetry_sdk::trace::{SdkTracerProvider, TracerProviderBuilder};
-use opentelemetry_sdk::{runtime, Resource};
+use opentelemetry_sdk::trace::{
+    BatchConfigBuilder, SdkTracerProvider, SpanExporter, TracerProviderBuilder,
+};
+use opentelemetry_sdk::Resource;
 use rsb_derive::*;
 pub use span_exporter::GcpCloudTraceExporter;
+use std::time::Duration;
 
 pub type SdkTracer = opentelemetry_sdk::trace::Tracer;
 
@@ -90,6 +94,10 @@ pub struct GcpCloudTraceExporterBuilder {
     /// Exports span events to Cloud Trace as `time_events` annotations. Defaults to `false`
     /// since span events are commonly captured by a logging layer as well.
     pub span_events: Option<bool>,
+    /// The longest a single batch export may take before it is abandoned. Shutdown waits for the
+    /// export in flight and for the final one, so it can take twice this long. Defaults to the
+    /// OpenTelemetry SDK default of 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT` when set.
+    pub max_export_timeout: Option<Duration>,
 }
 
 impl GcpCloudTraceExporterBuilder {
@@ -123,7 +131,7 @@ impl GcpCloudTraceExporterBuilder {
         .await?;
 
         let tracer_provider = builder
-            .with_span_processor(BatchSpanProcessor::builder(exporter, runtime::Tokio).build())
+            .with_span_processor(batch_span_processor(exporter, self.max_export_timeout))
             .build();
 
         Ok(tracer_provider)
@@ -140,5 +148,57 @@ impl GcpCloudTraceExporterBuilder {
 
         let tracer = provider.tracer_with_scope(scope);
         Ok(tracer)
+    }
+}
+
+fn batch_span_processor(
+    exporter: impl SpanExporter + 'static,
+    max_export_timeout: Option<Duration>,
+) -> BatchSpanProcessor<runtime::Tokio> {
+    let mut config = BatchConfigBuilder::default();
+    if let Some(max_export_timeout) = max_export_timeout {
+        config = config.with_max_export_timeout(max_export_timeout);
+    }
+    BatchSpanProcessor::builder(exporter, runtime::Tokio)
+        .with_batch_config(config.build())
+        .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentelemetry::trace::{Tracer, TracerProvider};
+    use opentelemetry_sdk::error::OTelSdkResult;
+    use opentelemetry_sdk::trace::SpanData;
+    use std::time::Instant;
+
+    #[derive(Debug)]
+    struct HungExporter;
+
+    impl SpanExporter for HungExporter {
+        fn export(
+            &self,
+            _batch: Vec<SpanData>,
+        ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
+            std::future::pending()
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn configured_export_timeout_bounds_shutdown() {
+        let provider = SdkTracerProvider::builder()
+            .with_span_processor(batch_span_processor(
+                HungExporter,
+                Some(Duration::from_millis(200)),
+            ))
+            .build();
+        provider.tracer("test").start("hung");
+
+        let started = Instant::now();
+        provider
+            .shutdown()
+            .expect_err("an abandoned export is reported");
+
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 }
