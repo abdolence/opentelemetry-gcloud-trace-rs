@@ -163,10 +163,10 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
     /// `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE` enables it. Errors with the same first line
     /// are one group in Error Reporting, wherever they were logged.
     ///
-    /// On the OTLP sink the same keys go in the body, and the `exception.type`,
-    /// `exception.message` and `exception.stacktrace` attributes are added. A `&dyn Error`
-    /// has no type name on stable Rust, so `exception.type` is set from an `exception.type`
-    /// event field when there is one.
+    /// On the OTLP sink the same keys go in the body, and the `exception.type` and
+    /// `exception.message` attributes are added. A `&dyn Error` has no type name on stable
+    /// Rust, so `exception.type` is set from an `exception.type` event field when there is
+    /// one.
     pub fn with_error_reporting(mut self, service: ServiceContext) -> Self {
         self.error_reporting = Some(service);
         self

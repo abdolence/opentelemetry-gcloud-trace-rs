@@ -145,7 +145,6 @@ impl ServiceContext {
                 _ => None,
             },
             message: exception_message,
-            stacktrace,
         }
     }
 }
@@ -179,7 +178,6 @@ fn capture_backtrace() -> Option<String> {
 pub(crate) struct ExceptionDetails {
     pub(crate) kind: Option<String>,
     pub(crate) message: String,
-    pub(crate) stacktrace: Option<String>,
 }
 
 /// An error and its `source()` chain, flattened to text. `tracing` hands an event field only

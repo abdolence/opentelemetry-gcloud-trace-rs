@@ -355,9 +355,7 @@ fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
         as_str(attribute(record, "exception.message").expect("exception.message is set"));
     assert!(exception_message.contains("payment declined"));
     assert!(exception_message.contains("card expired"));
-    let stacktrace =
-        as_str(attribute(record, "exception.stacktrace").expect("exception.stacktrace is set"));
-    assert!(stacktrace.contains("logs_otlp"));
+    assert!(attribute(record, "exception.stacktrace").is_none());
     assert!(!as_str(map_entry(body, "message").expect("message")).is_empty());
 
     assert!(attribute(&records[1], "exception.message").is_none());
