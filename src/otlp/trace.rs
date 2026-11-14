@@ -231,4 +231,25 @@ mod tests {
             .expect("the export gives up by itself, within its timeout")
             .is_err());
     }
+
+    #[tokio::test]
+    async fn default_export_timeout_bounds_connecting_to_a_silent_endpoint() {
+        let exporter = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
+            .with_endpoint(silent_endpoint().await)
+            .with_default_export_timeout(Duration::from_millis(300))
+            .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
+            .span_exporter()
+            .await
+            .unwrap();
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(5),
+            exporter.export(vec![finished_span()]),
+        )
+        .await;
+
+        assert!(outcome
+            .expect("the export gives up by itself, within the default timeout")
+            .is_err());
+    }
 }

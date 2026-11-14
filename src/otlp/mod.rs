@@ -22,7 +22,10 @@ use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
 use gcloud_sdk::tonic::transport::Endpoint;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
-use opentelemetry_otlp::{WithExportConfig, WithTonicConfig};
+use opentelemetry_otlp::{
+    WithExportConfig, WithTonicConfig, OTEL_EXPORTER_OTLP_TIMEOUT,
+    OTEL_EXPORTER_OTLP_TIMEOUT_DEFAULT,
+};
 use opentelemetry_sdk::Resource;
 use rsb_derive::*;
 use std::sync::Arc;
@@ -30,6 +33,18 @@ use std::time::Duration;
 use tokio::sync::OnceCell;
 
 const TELEMETRY_API_ENDPOINT: &str = "https://telemetry.googleapis.com";
+
+/// OpenTelemetry's export timeout: `OTEL_EXPORTER_OTLP_TIMEOUT` in milliseconds when it holds
+/// one, otherwise the specification's 10 seconds.
+fn default_export_timeout() -> Duration {
+    export_timeout_from(std::env::var(OTEL_EXPORTER_OTLP_TIMEOUT).ok().as_deref())
+}
+
+fn export_timeout_from(milliseconds: Option<&str>) -> Duration {
+    milliseconds
+        .and_then(|milliseconds| milliseconds.parse().ok())
+        .map_or(OTEL_EXPORTER_OTLP_TIMEOUT_DEFAULT, Duration::from_millis)
+}
 
 /// Builds OpenTelemetry exporters and providers that send spans, and under the
 /// `logs-otlp` feature log records, through OTLP to the Google Cloud Telemetry API.
@@ -57,9 +72,10 @@ pub struct GcpOtlpExporterBuilder {
     /// connecting, TLS handshake included, and of every export request, and for spans also the
     /// batch processor's bound. Shutdown exports every batch queued ahead of it, one after the
     /// other, so it can take this long once per 512 queued spans or log records, rounded up.
-    /// While unset, a request times out after the OTLP exporter's 10 seconds, or
-    /// `OTEL_EXPORTER_OTLP_TIMEOUT` when set, connecting has no timeout of its own, and the
-    /// span processor gives up after 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT`.
+    /// While unset, connecting, the TLS handshake and every request time out after the
+    /// OpenTelemetry standard 10 seconds, or `OTEL_EXPORTER_OTLP_TIMEOUT` (milliseconds) when
+    /// it is set, and the span processor gives up after 30 seconds, or
+    /// `OTEL_BSP_EXPORT_TIMEOUT`.
     pub max_export_timeout: Option<Duration>,
     /// The credentials exports are authenticated with. Defaults to the Application Default
     /// Credentials with the `cloud-platform` scope. Read by the first exporter or
@@ -67,6 +83,10 @@ pub struct GcpOtlpExporterBuilder {
     pub auth_headers: Option<Arc<GoogleAuthHeaders>>,
     #[default = "OnceCell::new()"]
     shared_auth_interceptor: OnceCell<GcpAuthInterceptor>,
+    /// The timeout of connecting and of requests while `max_export_timeout` is unset; settable
+    /// so a test need not wait out the real default or change the process environment.
+    #[default = "default_export_timeout()"]
+    default_export_timeout: Duration,
 }
 
 impl GcpOtlpExporterBuilder {
@@ -102,29 +122,23 @@ impl GcpOtlpExporterBuilder {
             None => TELEMETRY_API_ENDPOINT.to_string(),
         };
         let tls_config = ClientTlsConfig::new().with_enabled_roots();
-        let exporter = match self.max_export_timeout {
-            // The exporter's own timeout starts once a request is sent, so a server that takes
-            // the connection and never completes the TLS handshake is bounded only by timeouts
-            // set on the channel. A channel passed in replaces the exporter's endpoint and TLS
-            // configuration, which therefore move onto it.
-            Some(max_export_timeout) => {
-                let channel = Endpoint::from_shared(endpoint)
-                    .map_err(|error| {
-                        GcloudObservabilityError::invalid_parameters("endpoint", error.to_string())
-                    })?
-                    .tls_config(tls_config.timeout(max_export_timeout))
-                    .map_err(|error| {
-                        GcloudObservabilityError::system_caused_by("OTLP TLS error", error)
-                    })?
-                    .connect_timeout(max_export_timeout)
-                    .timeout(max_export_timeout)
-                    .connect_lazy();
-                exporter
-                    .with_channel(channel)
-                    .with_timeout(max_export_timeout)
-            }
-            None => exporter.with_endpoint(endpoint).with_tls_config(tls_config),
-        };
+        let export_timeout = self
+            .max_export_timeout
+            .unwrap_or(self.default_export_timeout);
+        // The exporter's own timeout starts once a request is sent, so a server that takes
+        // the connection and never completes the TLS handshake is bounded only by timeouts
+        // set on the channel. A channel passed in replaces the exporter's endpoint and TLS
+        // configuration, which therefore move onto it.
+        let channel = Endpoint::from_shared(endpoint)
+            .map_err(|error| {
+                GcloudObservabilityError::invalid_parameters("endpoint", error.to_string())
+            })?
+            .tls_config(tls_config.timeout(export_timeout))
+            .map_err(|error| GcloudObservabilityError::system_caused_by("OTLP TLS error", error))?
+            .connect_timeout(export_timeout)
+            .timeout(export_timeout)
+            .connect_lazy();
+        let exporter = exporter.with_channel(channel).with_timeout(export_timeout);
         Ok(exporter.with_interceptor(self.auth_interceptor().await?))
     }
 
@@ -146,6 +160,16 @@ mod tests {
     use super::*;
     use crate::errors::GcloudObservabilityError;
     use crate::otlp::testing::{ScriptedAccessToken, ORDERS_PROJECT};
+
+    #[test]
+    fn export_timeout_is_taken_in_milliseconds_or_defaults_to_ten_seconds() {
+        assert_eq!(
+            export_timeout_from(Some("2500")),
+            Duration::from_millis(2500)
+        );
+        assert_eq!(export_timeout_from(Some("soon")), Duration::from_secs(10));
+        assert_eq!(export_timeout_from(None), Duration::from_secs(10));
+    }
 
     #[tokio::test]
     async fn exporters_of_one_builder_share_one_refresh_task() {
