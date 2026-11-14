@@ -123,7 +123,7 @@ The examples are named after their goal, and each has `required-features` in `Ca
 | `enable-exporter`            | `traces-cloud-trace-api`, `traces-otlp`                             |
 | `tracing-exporter`           | `traces-cloud-trace-api`, `traces-otlp`                             |
 | `traces-and-logs`            | `traces-and-logs-cloud-trace-api`, `traces-and-logs-otlp`           |
-| `logging`                    | `logging-json`                                                      |
+| `logging`                    | `logging-dev-and-prod`                                              |
 | `logging-only-api`           | `logging-cloud-logging-api`                                         |
 
 `quickstart`, `logging-otlp`, `errors-error-reporting`, `errors-panic-hook` and `metrics-otlp` are new.

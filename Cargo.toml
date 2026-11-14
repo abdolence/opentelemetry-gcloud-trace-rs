@@ -76,8 +76,8 @@ path = "examples/quickstart.rs"
 required-features = ["logs", "otlp"]
 
 [[example]]
-name = "logging-json"
-path = "examples/logging/json.rs"
+name = "logging-dev-and-prod"
+path = "examples/logging/dev_and_prod.rs"
 required-features = ["logs", "otlp"]
 
 [[example]]

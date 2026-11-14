@@ -43,11 +43,11 @@ A layer sees only the span context attached by layers registered ahead of it, so
 The logging layer prints one warning to stderr the first time this happens.
 
 ```rust,ignore
-{{#include ../../../examples/logging/json.rs:layers}}
+{{#include ../../../examples/logging/dev_and_prod.rs:layers}}
 ```
 
 The layer reads the context through the public `tracing_opentelemetry::get_otel_context` API.
 Wrapping the layer in `Option`, `Box<dyn Layer>` or a per-layer filter needs no extra step.
 Under a scoped subscriber (`tracing::subscriber::with_default`) with the layer wrapped that way, the entry is correlated with the span entered on the thread, so an explicit `parent:` on an event is not honoured. A global subscriber has no such limit.
 
-Full example available [here](https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/json.rs).
+Full example available [here](https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs).

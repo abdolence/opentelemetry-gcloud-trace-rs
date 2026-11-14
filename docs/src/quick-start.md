@@ -50,10 +50,10 @@ Each example names its features in its header comment and in `required-features`
 PROJECT_ID=<your-google-project-id> cargo run --example quickstart --features logs,otlp
 ```
 
-| Goal                        | Examples                                                    |
-|-----------------------------|-------------------------------------------------------------|
-| Logging                     | `logging-json`, `logging-cloud-logging-api`, `logging-otlp` |
-| Errors and panics           | `errors-error-reporting`, `errors-panic-hook`               |
-| Traces                      | `traces-otlp`, `traces-cloud-trace-api`                     |
-| Traces with correlated logs | `traces-and-logs-otlp`, `traces-and-logs-cloud-trace-api`   |
-| Metrics                     | `metrics-otlp`                                              |
+| Goal                        | Examples                                                            |
+|-----------------------------|---------------------------------------------------------------------|
+| Logging                     | `logging-dev-and-prod`, `logging-cloud-logging-api`, `logging-otlp` |
+| Errors and panics           | `errors-error-reporting`, `errors-panic-hook`                       |
+| Traces                      | `traces-otlp`, `traces-cloud-trace-api`                             |
+| Traces with correlated logs | `traces-and-logs-otlp`, `traces-and-logs-cloud-trace-api`           |
+| Metrics                     | `metrics-otlp`                                                      |

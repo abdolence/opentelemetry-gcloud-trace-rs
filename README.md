@@ -97,13 +97,13 @@ Full example available [here](examples/quickstart.rs).
 
 More examples, by goal, are in the [examples](examples) directory:
 
-| Goal                        | Examples                                                    |
-|-----------------------------|-------------------------------------------------------------|
-| Logging                     | `logging-json`, `logging-cloud-logging-api`, `logging-otlp` |
-| Errors and panics           | `errors-error-reporting`, `errors-panic-hook`               |
-| Traces                      | `traces-otlp`, `traces-cloud-trace-api`                     |
-| Traces with correlated logs | `traces-and-logs-otlp`, `traces-and-logs-cloud-trace-api`   |
-| Metrics                     | `metrics-otlp`                                              |
+| Goal                        | Examples                                                            |
+|-----------------------------|---------------------------------------------------------------------|
+| Logging                     | `logging-dev-and-prod`, `logging-cloud-logging-api`, `logging-otlp` |
+| Errors and panics           | `errors-error-reporting`, `errors-panic-hook`                       |
+| Traces                      | `traces-otlp`, `traces-cloud-trace-api`                             |
+| Traces with correlated logs | `traces-and-logs-otlp`, `traces-and-logs-cloud-trace-api`           |
+| Metrics                     | `metrics-otlp`                                                      |
 
 Each runs as `PROJECT_ID=<your-google-project-id> cargo run --example <name> --features <features>`.
 The features it needs are in its header and in `required-features` in `Cargo.toml`.

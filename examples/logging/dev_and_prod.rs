@@ -9,8 +9,8 @@
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project cargo run --example logging-json --features logs,otlp
-//! PROJECT_ID=your-project APP_MODE=production cargo run --example logging-json --features logs,otlp
+//! PROJECT_ID=your-project cargo run --example logging-dev-and-prod --features logs,otlp
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example logging-dev-and-prod --features logs,otlp
 //! ```
 
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
         opentelemetry_sdk::Resource::builder()
-            .with_service_name("logging-json-example")
+            .with_service_name("logging-dev-and-prod-example")
             .build(),
     );
     let tracer_provider = otlp.create_provider().await?;

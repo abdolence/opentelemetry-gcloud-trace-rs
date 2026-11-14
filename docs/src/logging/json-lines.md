@@ -13,4 +13,4 @@ I/O errors are ignored: a full disk or a broken pipe does not turn into a panic.
 
 On a host without the agent the lines only print. Use the [Cloud Logging API](./cloud-logging-api.md) or [OTLP](./otlp.md) sink there.
 
-Full example available [here](https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/json.rs).
+Full example available [here](https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs).
