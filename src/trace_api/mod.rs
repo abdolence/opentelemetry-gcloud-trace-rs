@@ -6,15 +6,12 @@ mod exporter;
 
 pub use exporter::GcpCloudTraceExporter;
 
+use crate::common;
 use crate::errors::{GcloudTraceError, TraceExportResult};
-use opentelemetry::trace::TracerProvider;
-use opentelemetry::InstrumentationScope;
 use opentelemetry_sdk::error::OTelSdkError;
 use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
-use opentelemetry_sdk::trace::{
-    BatchConfigBuilder, SdkTracerProvider, SpanExporter, TracerProviderBuilder,
-};
+use opentelemetry_sdk::trace::{SdkTracerProvider, SpanExporter, TracerProviderBuilder};
 use opentelemetry_sdk::Resource;
 use rsb_derive::*;
 use std::time::Duration;
@@ -36,14 +33,7 @@ pub struct GcpCloudTraceExporterBuilder {
 
 impl GcpCloudTraceExporterBuilder {
     pub async fn for_default_project_id() -> TraceExportResult<Self> {
-        let detected_project_id = gcloud_sdk::GoogleEnvironment::detect_google_project_id().await.ok_or_else(||
-            crate::errors::GcloudTraceError::SystemError(
-                crate::errors::GcloudTraceSystemError::new(
-                    "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string()
-                )
-            )
-        )?;
-        Ok(Self::new(detected_project_id))
+        Ok(Self::new(common::detect_google_project_id().await?))
     }
 
     pub async fn create_provider(&self) -> Result<SdkTracerProvider, GcloudTraceError> {
@@ -75,26 +65,14 @@ impl GcpCloudTraceExporterBuilder {
         &self,
         exporter: impl SpanExporter + 'static,
     ) -> BatchSpanProcessor<runtime::Tokio> {
-        let mut config = BatchConfigBuilder::default();
-        if let Some(max_export_timeout) = self.max_export_timeout {
-            config = config.with_max_export_timeout(max_export_timeout);
-        }
-        BatchSpanProcessor::builder(exporter, runtime::Tokio)
-            .with_batch_config(config.build())
-            .build()
+        common::batch_span_processor(exporter, self.max_export_timeout)
     }
 
     pub async fn install(
         self,
         provider: &SdkTracerProvider,
     ) -> Result<opentelemetry_sdk::trace::Tracer, OTelSdkError> {
-        let scope = InstrumentationScope::builder("opentelemetry-gcloud")
-            .with_version(env!("CARGO_PKG_VERSION"))
-            .with_schema_url("https://opentelemetry.io/schemas/1.23.0")
-            .build();
-
-        let tracer = provider.tracer_with_scope(scope);
-        Ok(tracer)
+        Ok(common::tracer(provider))
     }
 }
 

@@ -67,6 +67,8 @@
 
 #![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
+#[cfg(any(feature = "logs", feature = "trace-api"))]
+mod common;
 pub mod errors;
 
 #[cfg(feature = "logs")]

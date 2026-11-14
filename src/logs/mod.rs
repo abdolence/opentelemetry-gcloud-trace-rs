@@ -41,7 +41,7 @@ mod json;
 #[cfg(feature = "logs-api")]
 pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource};
 
-use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
+use crate::errors::TraceExportResult;
 use json::JsonSink;
 use std::sync::{Once, OnceLock};
 use tracing::dispatcher::{Dispatch, WeakDispatch};
@@ -60,12 +60,11 @@ enum LogSink {
 
 /// Builds a [`GcpCloudLoggingLayer`].
 ///
-/// `W` is the sink configuration accumulated so far; today it is always the
-/// JSON writer type, and [`Self::build`] is defined only where `W` implements
-/// `MakeWriter`. A future Cloud Logging API sink would occupy this same type
-/// parameter with a non-`MakeWriter` config and expose its own `build_async`,
-/// so the two build methods stay mutually exclusive at the type level rather
-/// than by runtime check.
+/// `W` is the sink the layer is built for, and each sink has its own build
+/// method: [`Self::build`] where `W` is a `MakeWriter` for JSON lines, and
+/// `build_async` where it is a `GcpCloudLoggingApiConfig` (feature
+/// `logs-api`). A builder therefore becomes exactly one sink, which the
+/// compiler checks rather than a runtime test.
 pub struct GcpCloudLoggingLayerBuilder<W = fn() -> std::io::Stdout> {
     project_id: String,
     with_source_location: bool,
@@ -87,14 +86,7 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
     /// default service account, the same way the exporter builders'
     /// `for_default_project_id` does, and starts a builder from it.
     pub async fn for_default_project_id() -> TraceExportResult<Self> {
-        let detected_project_id = gcloud_sdk::GoogleEnvironment::detect_google_project_id()
-            .await
-            .ok_or_else(|| {
-                GcloudTraceError::SystemError(GcloudTraceSystemError::new(
-                    "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string(),
-                ))
-            })?;
-        Ok(Self::new(detected_project_id))
+        Ok(Self::new(crate::common::detect_google_project_id().await?))
     }
 }
 
