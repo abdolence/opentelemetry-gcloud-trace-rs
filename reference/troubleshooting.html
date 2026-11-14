@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b375a3d.js";
+            window.path_to_searchindex_js = "../searchindex-53d5e387.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-8d281217.js"></script>
@@ -178,12 +178,6 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
-<h2 id="could-not-resolve-host-for-telemetrygoogleapiscom"><a class="header" href="#could-not-resolve-host-for-telemetrygoogleapiscom">Could not resolve host for telemetry.googleapis.com</a></h2>
-<p>DNS filters such as dnscrypt-proxy, Pi-hole and corporate blocklists often block every <code>telemetry.*</code> name.
-The example blocklist of dnscrypt-proxy, which OpenWrt enables, is one of them.
-The Telemetry API and its regional endpoints then fail with “could not resolve host”.</p>
-<p>Allowlist <code>telemetry.googleapis.com</code> and <code>telemetry.*.rep.googleapis.com</code>.
-The upstream report is <a href="https://github.com/openwrt/packages/issues/31291">openwrt/packages#31291</a>.</p>
 <h2 id="no-trace-or-span-on-the-log-entries"><a class="header" href="#no-trace-or-span-on-the-log-entries">No trace or span on the log entries</a></h2>
 <p>The logging layer is registered before <code>tracing_opentelemetry::layer()</code>, or that layer is missing.
 Register the OpenTelemetry layer first, see <a href="../logging/layer.html#layer-ordering">The logging layer</a>.
