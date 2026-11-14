@@ -11,10 +11,7 @@ mod trace;
 pub use auth::GcpAuthInterceptor;
 
 use crate::common;
-use crate::errors::{
-    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
-};
-use gcloud_sdk::tonic::transport::Uri;
+use crate::errors::GcloudObservabilityResult;
 use gcloud_sdk::GoogleAuthHeaders;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
@@ -88,22 +85,9 @@ impl GcpOtlpExporterBuilder {
         B: WithExportConfig + WithTonicConfig,
     {
         let endpoint = self.endpoint.as_deref().unwrap_or(TELEMETRY_API_ENDPOINT);
-        let host = endpoint
-            .parse::<Uri>()
-            .ok()
-            .and_then(|uri| uri.host().map(str::to_string))
-            .ok_or_else(|| {
-                GcloudObservabilityError::SystemError(GcloudObservabilitySystemError::new(format!(
-                    "The OTLP endpoint `{endpoint}` is not a URI with a host"
-                )))
-            })?;
         let exporter = exporter
             .with_endpoint(endpoint)
-            .with_tls_config(
-                ClientTlsConfig::new()
-                    .with_enabled_roots()
-                    .domain_name(host),
-            )
+            .with_tls_config(ClientTlsConfig::new().with_enabled_roots())
             .with_interceptor(self.auth_interceptor().await?);
         Ok(match self.max_export_timeout {
             Some(max_export_timeout) => exporter.with_timeout(max_export_timeout),
@@ -127,6 +111,7 @@ impl GcpOtlpExporterBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::GcloudObservabilityError;
     use crate::otlp::testing::ScriptedAccessToken;
 
     #[tokio::test]
@@ -140,5 +125,19 @@ mod tests {
 
         // Held here, by the builder and by the one refresh task.
         assert_eq!(Arc::strong_count(&auth_headers), 3);
+    }
+
+    #[tokio::test]
+    async fn an_endpoint_that_is_not_a_uri_fails_the_exporter_build() {
+        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
+            .with_endpoint("not a uri".to_string())
+            .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
+
+        let result = builder.span_exporter().await;
+
+        assert!(matches!(
+            result,
+            Err(GcloudObservabilityError::SystemError(_))
+        ));
     }
 }
