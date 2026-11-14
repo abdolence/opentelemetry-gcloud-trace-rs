@@ -4,7 +4,7 @@
 //! Logging, Cloud Trace and Error Reporting. Formerly `opentelemetry-gcloud-trace`.
 //!
 //! The guide, which covers each goal below, is at
-//! <https://abdolence.github.io/gcloud-observability-rs/>.
+//! <https://gcloud-observability-rust.abdolence.dev/>.
 //!
 //! ## What each feature gives
 //!

@@ -15,6 +15,7 @@ create-missing = false
 [output.html]
 default-theme = "navy"
 git-repository-url = "https://github.com/abdolence/gcloud-observability-rs"
+cname = "gcloud-observability-rust.abdolence.dev"
 
 [output.html.playground]
 runnable = false

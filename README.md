@@ -16,7 +16,7 @@ The library sends what a Rust service emits through `tracing` and OpenTelemetry 
 
 ## Documentation
 
-Please follow to the official website: <https://abdolence.github.io/gcloud-observability-rs/>.
+Please follow to the official website: <https://gcloud-observability-rust.abdolence.dev/>.
 
 ## Features
 
@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 The spans are exported with the credentials ADC finds, which need the `roles/telemetry.writer` role on the project.
 The logging layer writes JSON lines to stdout, which the Cloud Logging agent of GKE, Cloud Run and GCE collects.
-See [Authentication](https://abdolence.github.io/gcloud-observability-rs/authentication.html).
+See [Authentication](https://gcloud-observability-rust.abdolence.dev/authentication.html).
 
 Full example available [here](examples/quickstart.rs).
 
@@ -130,9 +130,9 @@ Versions up to 0.30 are published as `opentelemetry-gcloud-trace`.
 
 0.31 renames the crate and moves the Cloud Trace API exporter behind the `trace-api` feature.
 See the [migration guide](MIGRATION.md) and
-[Migrating from 0.30](https://abdolence.github.io/gcloud-observability-rs/migrating-from-0.30.html).
+[Migrating from 0.30](https://gcloud-observability-rust.abdolence.dev/migrating-from-0.30.html).
 
-From `tracing-stackdriver`: [Migrating from tracing-stackdriver](https://abdolence.github.io/gcloud-observability-rs/migrating-from-tracing-stackdriver.html).
+From `tracing-stackdriver`: [Migrating from tracing-stackdriver](https://gcloud-observability-rust.abdolence.dev/migrating-from-tracing-stackdriver.html).
 
 ## Licence
 
