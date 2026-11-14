@@ -11,7 +11,6 @@ mod trace;
 
 pub use auth::GcpAuthInterceptor;
 pub use endpoint::TelemetryEndpoint;
-pub use trace::GcpOtlpSpanExporter;
 
 /// The Google credentials' headers [`GcpAuthInterceptor::new`] and
 /// [`GcpOtlpExporterBuilder::auth_headers`] take, re-exported so callers need not depend on

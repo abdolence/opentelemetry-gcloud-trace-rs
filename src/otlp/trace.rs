@@ -13,10 +13,8 @@ use std::time::Duration;
 
 /// An exporter that sends spans through OTLP, leaving their events out unless
 /// [`GcpOtlpExporterBuilder::span_events`] is `true`.
-///
-/// Created by [`GcpOtlpExporterBuilder::span_exporter`].
 #[derive(Debug)]
-pub struct GcpOtlpSpanExporter<E = SpanExporter> {
+pub(crate) struct GcpOtlpSpanExporter<E = SpanExporter> {
     inner: E,
     span_events: bool,
 }
@@ -47,7 +45,7 @@ impl<E: SdkSpanExporter> SdkSpanExporter for GcpOtlpSpanExporter<E> {
 impl GcpOtlpExporterBuilder {
     /// The OTLP span exporter, authenticated and pointed at the Telemetry API. Spans are
     /// exported without their events unless [`Self::span_events`] is `true`.
-    pub async fn span_exporter(&self) -> GcloudObservabilityResult<GcpOtlpSpanExporter> {
+    pub async fn span_exporter(&self) -> GcloudObservabilityResult<impl SdkSpanExporter + 'static> {
         let exporter = self
             .configure_exporter(SpanExporter::builder().with_tonic())
             .await?;
