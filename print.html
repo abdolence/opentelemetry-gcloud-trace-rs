@@ -1,0 +1,1372 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Google Cloud observability for Rust</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Cloud Logging, Cloud Trace and Error Reporting for Rust services that use tracing and OpenTelemetry, with OTLP to the Google Cloud Telemetry API">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-4b375a3d.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-8d281217.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Google Cloud observability for Rust</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/abdolence/gcloud-observability-rs" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="google-cloud-observability-for-rust"><a class="header" href="#google-cloud-observability-for-rust">Google Cloud observability for Rust</a></h1>
+<p>Formerly <code>opentelemetry-gcloud-trace</code>, see <a href="#migration-guide">Migrating from 0.30</a>.</p>
+<p>The library sends what a Rust service emits through <code>tracing</code> and OpenTelemetry to Google Cloud:</p>
+<ul>
+<li><a href="#the-logging-layer">Cloud Logging</a>: a <code>tracing-subscriber</code> layer that turns every event into a structured log entry, correlated with the trace and span that emitted it, so the Google Cloud console shows each log line under its trace;</li>
+<li>three <a href="#sinks">log sinks</a>: JSON lines on stdout for GKE, Cloud Run and hosts with the Cloud Logging agent, the Cloud Logging API, and OTLP;</li>
+<li><a href="#error-reporting">Error Reporting</a>: errors logged with the code location, the <code>source()</code> chain and a backtrace, and <a href="#panic-hook">panics</a>, in the format Error Reporting groups;</li>
+<li><a href="#choosing-an-exporter">Cloud Trace</a>: OpenTelemetry span exporters for the Telemetry API and for the Cloud Trace API v2;</li>
+<li><a href="#authentication">Authentication</a> for any OTLP exporter, <a href="#metrics-over-otlp">metrics</a> included, with Application Default Credentials refreshed in the background.</li>
+</ul>
+<h2 id="terms"><a class="header" href="#terms">Terms</a></h2>
+<p>OTLP is the OpenTelemetry protocol, the wire format OpenTelemetry SDKs send traces, metrics and logs in.
+The Telemetry API (<code>telemetry.googleapis.com</code>) is the Google Cloud endpoint that takes OTLP for all three signals; see <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/overview">Telemetry API overview</a>.
+Application Default Credentials (ADC) is the way Google client libraries find credentials: an environment variable, a local file written by <code>gcloud</code>, or the metadata server of the host.</p>
+<h2 id="how-the-pieces-fit"><a class="header" href="#how-the-pieces-fit">How the pieces fit</a></h2>
+<ul>
+<li>A span is created by <code>tracing</code> macros or by the OpenTelemetry API. The <code>tracing-opentelemetry</code> layer turns <code>tracing</code> spans into OpenTelemetry spans, and a tracer provider hands finished spans to an exporter: <code>otlp</code> for the Telemetry API, or <code>trace-api</code> for the Cloud Trace API.</li>
+<li>A <code>tracing</code> event passes through the logging layer, which builds one log entry and gives it to the sink chosen when the layer was built.</li>
+<li>The logging layer reads the trace and span ids that the <code>tracing-opentelemetry</code> layer attached, so the entry and the span are linked in the console. The <code>tracing-opentelemetry</code> layer is therefore registered first, see <a href="#the-logging-layer">The logging layer</a>.</li>
+<li>The exporters, the Cloud Logging API sink and any OTLP exporter built elsewhere authenticate through the same ADC, see <a href="#authentication">Authentication</a>.</li>
+</ul>
+<p>Neither exporter is enabled by default, see <a href="#feature-flags">Feature flags</a>.
+To start using the library, see <a href="#quick-start">Quick start</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="quick-start"><a class="header" href="#quick-start">Quick start</a></h1>
+<p>Cargo.toml:</p>
+<pre><code class="language-toml">[dependencies]
+gcloud-observability = { version = "0.31", features = ["otlp"] }
+opentelemetry_sdk = "0.33"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.34"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+</code></pre>
+<p>Minimum supported Rust version is 1.91.</p>
+<p>The <code>logs</code> feature, which provides the logging layer, is on by default.
+<code>otlp</code> adds the span exporter for the Telemetry API.</p>
+<p>The setup below exports spans through OTLP and writes every event to stdout as a Cloud Logging JSON line that carries the trace and span it happened in:</p>
+<pre><code class="language-rust ignore">    let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_service_name("quickstart-example")
+            .build(),
+    );
+    let tracer_provider = otlp.create_provider().await?;
+    let tracer = otlp.install(&amp;tracer_provider);
+
+    let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build()?;
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(log_layer);
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<p>The setup needs these imports:</p>
+<pre><code class="language-rust ignore">use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
+use gcloud_observability::otlp::GcpOtlpExporterBuilder;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{EnvFilter, Registry};</code></pre>
+<p>The JSON lines are what the Cloud Logging agent of GKE, Cloud Run and GCE collects from stdout.
+Run on a laptop they only print; the spans reach the Telemetry API either way.</p>
+<p>Call <code>tracer_provider.shutdown()</code> before the process ends. It exports the spans still queued, and blocks the calling thread, so it needs the multi-threaded Tokio runtime that <code>#[tokio::main]</code> starts.</p>
+<p>The credentials are found by ADC and need the role described in <a href="#authentication">Authentication</a>.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/quickstart.rs">here</a>.</p>
+<h2 id="running-the-examples"><a class="header" href="#running-the-examples">Running the examples</a></h2>
+<p>All examples are in the <a href="https://github.com/abdolence/gcloud-observability-rs/tree/master/examples">examples</a> directory, named after their goal.
+Each example names its features in its header comment and in <code>required-features</code> in <code>Cargo.toml</code>:</p>
+<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; cargo run --example quickstart --features logs,otlp
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Goal</th><th>Examples</th></tr>
+</thead>
+<tbody>
+<tr><td>Logging</td><td><code>logging-dev-and-prod</code>, <code>logging-cloud-logging-api</code>, <code>logging-otlp</code></td></tr>
+<tr><td>Errors and panics</td><td><code>errors-error-reporting</code>, <code>errors-panic-hook</code></td></tr>
+<tr><td>Traces</td><td><code>traces-otlp</code>, <code>traces-cloud-trace-api</code></td></tr>
+<tr><td>Traces with correlated logs</td><td><code>traces-and-logs-otlp</code>, <code>traces-and-logs-cloud-trace-api</code></td></tr>
+<tr><td>Metrics</td><td><code>metrics-otlp</code></td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="feature-flags"><a class="header" href="#feature-flags">Feature flags</a></h1>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Default</th><th>Provides</th></tr>
+</thead>
+<tbody>
+<tr><td><code>logs</code></td><td>yes</td><td>The logging layer with the JSON lines sink, and <a href="#error-reporting">Error Reporting</a> for every sink</td></tr>
+<tr><td><code>logs-api</code></td><td>no</td><td>The <a href="#cloud-logging-api">Cloud Logging API sink</a>; includes <code>logs</code></td></tr>
+<tr><td><code>logs-otlp</code></td><td>no</td><td>The <a href="#otlp">OTLP sink</a>; includes <code>logs</code> and <code>otlp</code></td></tr>
+<tr><td><code>otlp</code></td><td>no</td><td>The <a href="#otlp-exporter">OTLP exporter</a> for the Telemetry API, and <code>GcpAuthInterceptor</code> for <a href="#metrics-over-otlp">any OTLP exporter</a></td></tr>
+<tr><td><code>trace-api</code></td><td>no</td><td>The <a href="#cloud-trace-api-exporter">Cloud Trace API exporter</a></td></tr>
+<tr><td><code>tls-roots</code></td><td>yes</td><td>Native TLS root certificates, see <a href="#tls-and-crypto-features">TLS and crypto features</a></td></tr>
+<tr><td><code>tls-webpki-roots</code></td><td>no</td><td>TLS root certificates of the <code>webpki-roots</code> crate</td></tr>
+<tr><td><code>auth-default-crypto</code></td><td>yes</td><td>The rustls crypto provider that service account keys are signed with</td></tr>
+</tbody>
+</table>
+</div>
+<p>The modules follow the features: <code>logs</code>, <code>otlp</code> and <code>trace_api</code>.
+<code>ids</code> holds <code>LogId</code>, which the <code>logs-api</code> and <code>logs-otlp</code> sinks take, and <code>errors</code> holds the error types.
+Nothing is re-exported at the crate root.</p>
+<p>Choose the features by goal:</p>
+<ul>
+<li>logs to stdout for an agent: the defaults;</li>
+<li>logs through the Cloud Logging API: <code>logs-api</code>;</li>
+<li>logs and spans through the Telemetry API: <code>logs-otlp</code>;</li>
+<li>spans through the Telemetry API: <code>otlp</code>;</li>
+<li>spans through the Cloud Trace API: <code>trace-api</code>, see <a href="#choosing-an-exporter">Choosing an exporter</a>.</li>
+</ul>
+<p>With <code>default-features = false</code>, enable a TLS roots feature and, for service account keys, <code>auth-default-crypto</code>:</p>
+<pre><code class="language-toml">[dependencies]
+gcloud-observability = { version = "0.31", default-features = false, features = ["logs", "otlp", "tls-webpki-roots", "auth-default-crypto"] }
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="authentication"><a class="header" href="#authentication">Authentication</a></h1>
+<p>Every exporter and sink that talks to Google authenticates with Application Default Credentials (ADC), found in this order:</p>
+<ul>
+<li>a JSON file whose path is in the <code>GOOGLE_APPLICATION_CREDENTIALS</code> environment variable;</li>
+<li>a JSON file in the location known to <code>gcloud</code>, written by <code>gcloud auth application-default login</code>;</li>
+<li>on Google Compute Engine, GKE and Cloud Run, the credentials of the metadata server.</li>
+</ul>
+<p>The sinks that write to stdout need no credentials.</p>
+<h2 id="local-development"><a class="header" href="#local-development">Local development</a></h2>
+<p>Don’t confuse <code>gcloud auth login</code> with <code>gcloud auth application-default login</code>.
+The first authorises only the <code>gcloud</code> tool; the second writes the user credentials that ADC reads.</p>
+<p>A user credential sends its requests against a quota project.
+Set it with <code>gcloud auth application-default set-quota-project &lt;project&gt;</code> when requests are refused for lack of one. The credentials add the <code>x-goog-user-project</code> header themselves, and the library does not set it.</p>
+<h2 id="apis-to-enable"><a class="header" href="#apis-to-enable">APIs to enable</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Sends to</th><th>API to enable</th></tr>
+</thead>
+<tbody>
+<tr><td><code>otlp</code>, <code>logs-otlp</code>, metrics</td><td>Telemetry API (<code>telemetry.googleapis.com</code>)</td></tr>
+<tr><td><code>logs-api</code></td><td>Cloud Logging API (<code>logging.googleapis.com</code>)</td></tr>
+<tr><td><code>trace-api</code></td><td>Cloud Trace API (<code>cloudtrace.googleapis.com</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Keep the Cloud Trace API enabled when exporting through the Telemetry API as well: with it disabled, Google Cloud Observability discards the trace data sent to the Telemetry API. See <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/v1.traces">Telemetry API traces reference</a> and the <a href="https://docs.cloud.google.com/trace/docs/release-notes">Cloud Trace release notes</a>.</p>
+<h2 id="roles"><a class="header" href="#roles">Roles</a></h2>
+<p>Grant the roles to the service account the application runs as.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Sends to</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td>Telemetry API</td><td><code>roles/telemetry.writer</code> on the project, for traces, metrics and logs</td></tr>
+<tr><td>Cloud Logging API</td><td><code>roles/logging.logWriter</code> on the project</td></tr>
+<tr><td>Cloud Trace API</td><td><code>roles/cloudtrace.agent</code> on the project</td></tr>
+</tbody>
+</table>
+</div>
+<p>The Telemetry API also needs <code>roles/serviceusage.serviceUsageConsumer</code> on the quota project.</p>
+<p>Google’s migration guide for the Telemetry API lists narrower roles in place of <code>roles/telemetry.writer</code>: <code>roles/telemetry.tracesWriter</code>, <code>roles/logging.logWriter</code> and <code>roles/monitoring.metricWriter</code>.
+See <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/overview">Telemetry API overview</a> and <a href="https://docs.cloud.google.com/trace/docs/migrate-to-otlp-endpoints">Migrate from the Cloud Trace API to OTLP endpoints</a>.</p>
+<h2 id="tokens-and-refresh"><a class="header" href="#tokens-and-refresh">Tokens and refresh</a></h2>
+<p>A tonic interceptor runs synchronously, while Google tokens are refreshed asynchronously.
+<code>GcpAuthInterceptor</code> bridges the two: it fetches the first headers when it is created, so bad credentials fail when the exporter is built rather than in a background task, and a background task polls the credentials every 5 seconds and publishes the headers when they change.
+A failed refresh keeps the headers published last. A warning is logged when refreshing starts failing and another when it recovers.
+The task runs on the Tokio runtime the interceptor was created on, and ends when the last clone is dropped.</p>
+<p>All exporters built from one <code>GcpOtlpExporterBuilder</code> share one interceptor and one set of credentials.
+Pass other credentials with <code>with_auth_headers</code>, and build <code>GcpAuthInterceptor</code> yourself for an OTLP exporter built elsewhere, see <a href="#metrics-over-otlp">Metrics over OTLP</a>.</p>
+<h2 id="crypto-provider"><a class="header" href="#crypto-provider">Crypto provider</a></h2>
+<p>Service account keys sign their tokens with a rustls crypto provider; see <a href="#tls-and-crypto-features">TLS and crypto features</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="the-logging-layer"><a class="header" href="#the-logging-layer">The logging layer</a></h1>
+<p><code>GcpCloudLoggingLayer</code> is a <code>tracing-subscriber</code> layer. It turns every <code>tracing</code> event into one Cloud Logging entry, with these parts:</p>
+<ul>
+<li><code>severity</code>, from the event level;</li>
+<li><code>message</code> and <code>target</code>, and every other event field as the entry’s <code>jsonPayload</code>, Cloud Logging’s structured payload;</li>
+<li><code>logging.googleapis.com/sourceLocation</code>, the file and line of the event;</li>
+<li><code>logging.googleapis.com/trace</code>, <code>spanId</code> and <code>trace_sampled</code>, taken from the OpenTelemetry span the event happened in, which link the entry to its span in the console;</li>
+<li><code>httpRequest</code>, labels and an operation, from <a href="#field-conventions">conventional field names</a>.</li>
+</ul>
+<p>A JSON line from the default sink looks like this:</p>
+<pre><code class="language-json">{
+  "time": "2026-11-14T16:21:43.008982Z",
+  "severity": "INFO",
+  "message": "checkout request received",
+  "target": "orders",
+  "logging.googleapis.com/sourceLocation": { "file": "src/orders.rs", "line": "78" },
+  "logging.googleapis.com/trace": "projects/my-project/traces/b3f6d198940b478f16da57f0c19e491b",
+  "logging.googleapis.com/spanId": "cbdd640d48c893e0",
+  "logging.googleapis.com/trace_sampled": true,
+  "order_id": "order-42"
+}
+</code></pre>
+<h2 id="building-the-layer"><a class="header" href="#building-the-layer">Building the layer</a></h2>
+<pre><code class="language-rust ignore">let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build()?;</code></pre>
+<p><code>build()</code> returns an error when the project ID is empty or contains <code>/</code> or a control character: <code>InvalidParametersError</code> with the field <code>google_project_id</code>.
+<code>GcpCloudLoggingLayerBuilder::for_default_project_id()</code> takes the project of the environment the process runs in.
+<code>with_source_location(false)</code> leaves <code>sourceLocation</code> out.</p>
+<p>A layer has exactly one <a href="#sinks">sink</a>, chosen when it is built.</p>
+<h2 id="layer-ordering"><a class="header" href="#layer-ordering">Layer ordering</a></h2>
+<p>Register <code>tracing_opentelemetry::layer()</code> before the logging layer.
+A layer sees only the span context attached by layers registered ahead of it, so registering the logging layer first, or leaving the OpenTelemetry layer out, drops <code>trace</code>, <code>spanId</code> and <code>traceSampled</code> from every entry.
+The logging layer prints one warning to stderr the first time this happens.</p>
+<pre><code class="language-rust ignore">    // `Option&lt;Layer&gt;` implements `Layer`, so both sinks are built from one `match` and composed
+    // unconditionally below. The inactive one is a `None` that costs nothing.
+    let (console_layer, json_layer) = if production {
+        (
+            None,
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
+        )
+    } else {
+        (Some(tracing_subscriber::fmt::layer()), None)
+    };
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(console_layer)
+        .with(json_layer);
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<p>The layer reads the context through the public <code>tracing_opentelemetry::get_otel_context</code> API.
+Wrapping the layer in <code>Option</code>, <code>Box&lt;dyn Layer&gt;</code> or a per-layer filter needs no extra step.
+Under a scoped subscriber (<code>tracing::subscriber::with_default</code>) with the layer wrapped that way, the entry is correlated with the span entered on the thread, so an explicit <code>parent:</code> on an event is not honoured. A global subscriber has no such limit.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sinks"><a class="header" href="#sinks">Sinks</a></h1>
+<p>A layer writes its entries to one sink, chosen when the layer is built:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Sink</th><th>Feature</th><th>Use it when</th><th>Build method</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#json-lines">JSON lines</a></td><td><code>logs</code> (default)</td><td>the host runs the Cloud Logging agent over stdout: GKE, Cloud Run, GCE with the Ops Agent</td><td><code>build()</code></td></tr>
+<tr><td><a href="#cloud-logging-api">Cloud Logging API</a></td><td><code>logs-api</code></td><td>the host has no logging agent: a laptop, a VM without the Ops Agent, a batch job</td><td><code>build_async().await</code></td></tr>
+<tr><td><a href="#otlp">OTLP</a></td><td><code>logs-otlp</code></td><td>logs go to the Telemetry API beside the spans, with one set of credentials</td><td><code>build()</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The JSON lines sink costs no queue, no background task and no network traffic of its own.
+Where an agent is present it is the cheaper and simpler choice.</p>
+<p>Every sink builds its entry from the same event record, so the <a href="#field-conventions">field conventions</a>, <a href="#error-reporting">Error Reporting</a> and trace correlation behave the same on each.</p>
+<p>The two network sinks, the Cloud Logging API and OTLP, skip events whose target is in <code>h2</code>, <code>hyper</code>, <code>hyper_util</code>, <code>tonic</code>, <code>tower</code>, <code>rustls</code>, <code>gcloud_sdk</code>, <code>opentelemetry</code>, <code>opentelemetry_sdk</code> or <code>opentelemetry_otlp</code>.
+At DEBUG or TRACE every export makes events in those crates, and an entry made of one is another export to make.
+The JSON lines sink writes them.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="json-lines"><a class="header" href="#json-lines">JSON lines</a></h1>
+<p>The default sink writes each entry as one JSON line to stdout.
+GKE, Cloud Run and a GCE instance with the Cloud Logging agent parse structured JSON from stdout, so the layer only has to serialise each event: the keys above map onto Cloud Logging’s <code>LogEntry</code> fields.</p>
+<pre><code class="language-rust ignore">let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build()?;</code></pre>
+<p><code>with_json_writer</code> takes any <code>tracing_subscriber::fmt::MakeWriter</code> in place of stdout.
+Each line is written with a single <code>write_all</code>, so concurrent events do not interleave partial lines on a shared writer.
+I/O errors are ignored: a full disk or a broken pipe does not turn into a panic.</p>
+<p>On a host without the agent the lines only print. Use the <a href="#cloud-logging-api">Cloud Logging API</a> or <a href="#otlp">OTLP</a> sink there.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cloud-logging-api"><a class="header" href="#cloud-logging-api">Cloud Logging API</a></h1>
+<p>The <code>logs-api</code> feature adds a sink that writes through the Cloud Logging API (<code>logging.googleapis.com</code>), for hosts with no logging agent to collect stdout.
+Entries are queued and written in batches by a background task on the Tokio runtime that <code>build_async</code> was called on.</p>
+<pre><code class="language-rust ignore">    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
+            "gcloud-observability-example",
+        )?))
+        .build_async()
+        .await?;
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(log_layer);
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<p><code>GcpCloudLoggingApiConfig::new</code> takes a <code>LogId</code>, the log the entries go to: 1 to 511 letters, digits and <code>/ _ - .</code>.
+<code>LogId::from_static</code> checks a constant at compile time. A <code>/</code> is URL-encoded as <code>%2F</code> in the <code>logName</code>, as Cloud Logging stores it.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th></tr>
+</thead>
+<tbody>
+<tr><td><code>with_resource</code></td><td>the <code>global</code> monitored resource, labelled with the project ID</td></tr>
+<tr><td><code>with_batch_size</code></td><td>200 entries</td></tr>
+<tr><td><code>with_flush_interval</code></td><td>2 seconds</td></tr>
+<tr><td><code>with_queue_capacity</code></td><td>10 000 entries</td></tr>
+<tr><td><code>with_shutdown_timeout</code></td><td>5 seconds</td></tr>
+</tbody>
+</table>
+</div>
+<p>A monitored resource is the resource an entry is attributed to, such as <code>gce_instance</code> or <code>k8s_container</code>. Set one with <code>with_resource</code> to have entries grouped with the rest of that resource’s logs.</p>
+<p>A batch is written when <code>batch_size</code> entries are queued, or <code>flush_interval</code> after its first entry.
+When the queue is full, new entries are dropped instead of blocking the thread that logged them, and a message on stderr reports the drops.</p>
+<h2 id="shutting-down"><a class="header" href="#shutting-down">Shutting down</a></h2>
+<p><code>build_async</code> returns the layer and a <code>GcpCloudLoggingHandle</code>.
+Call <code>handle.shutdown().await</code> before the process ends: it closes the queue and waits, bounded by the shutdown timeout, for the final write.
+Dropping the handle without it leaves the queued entries unwritten.
+<code>flush</code> and <code>shutdown</code> are async and block no thread, so they work on a current-thread runtime.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/cloud_logging_api.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="otlp"><a class="header" href="#otlp">OTLP</a></h1>
+<p>The <code>logs-otlp</code> feature adds a sink that sends entries as OpenTelemetry log records to the Telemetry API.
+The same <code>GcpOtlpExporterBuilder</code> that exports the spans builds the logger provider, so one set of credentials and one endpoint serve both signals.</p>
+<pre><code class="language-rust ignore">    let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_service_name("logging-otlp-example")
+            .build(),
+    );
+    let tracer_provider = otlp.create_provider().await?;
+    let tracer = otlp.install(&amp;tracer_provider);
+    let logger_provider = otlp.create_logger_provider().await?;
+
+    let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_otel_logger_provider(
+            &amp;logger_provider,
+            LogId::new("gcloud-observability-example")?,
+        )
+        .build()?;
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(log_layer);
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<p><code>with_otel_logger_provider</code> takes the provider and the <code>LogId</code> of the log the entries are written to, which becomes the <code>gcp.log.name</code> attribute.
+Its <code>build()</code> is synchronous.
+The caller owns the provider and flushes it by shutting it down.</p>
+<h2 id="shutting-down-1"><a class="header" href="#shutting-down-1">Shutting down</a></h2>
+<p><code>shutdown</code>, <code>force_flush</code> and dropping the provider block the calling thread.
+The batch processor exports on a thread of its own, but the connection is driven by the Tokio runtime, which needs a thread free to do it.
+On a current-thread runtime they wait out their timeout and the queued records are not exported.
+Call them on a multi-threaded runtime, or from a thread outside the runtime.</p>
+<p>The processor reports a failed export as an <code>ERROR</code> <code>tracing</code> event with the <code>opentelemetry_sdk</code> target.
+That target is on the list of <a href="#sinks">transport crates</a> the network sinks skip, so a failing export does not log itself into another export.</p>
+<p><code>max_export_timeout</code> bounds how long an export may take, see <a href="#timeouts">OTLP exporter</a>.</p>
+<h2 id="mapping"><a class="header" href="#mapping">Mapping</a></h2>
+<p>The Telemetry API maps an OTLP log record onto a <code>LogEntry</code>, see <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/otlp-log-record-to-log-entry">OTLP log record to LogEntry mapping</a>.
+The sink follows it:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Event</th><th>OTLP log record</th><th><code>LogEntry</code></th></tr>
+</thead>
+<tbody>
+<tr><td>level, or a <code>severity</code> field</td><td><code>severity_number</code> and <code>severity_text</code></td><td><code>severity</code></td></tr>
+<tr><td>message and fields</td><td>body, a key-value list</td><td><code>jsonPayload</code></td></tr>
+<tr><td>enclosing span</td><td>trace ID, span ID and sampled flag</td><td><code>trace</code>, <code>spanId</code>, <code>traceSampled</code></td></tr>
+<tr><td><code>http_request.*</code></td><td><code>gcp.http_request</code>; <code>latency</code> as seconds</td><td><code>httpRequest</code></td></tr>
+<tr><td><code>operation.*</code></td><td><code>gcp.operation</code></td><td><code>operation</code></td></tr>
+<tr><td>source location</td><td><code>code.file.path</code> and <code>code.line.number</code></td><td><code>sourceLocation</code></td></tr>
+<tr><td><code>insert_id</code></td><td><code>gcp.insert_id</code></td><td><code>insertId</code></td></tr>
+<tr><td><code>labels.*</code></td><td>one attribute per label</td><td><code>labels</code></td></tr>
+<tr><td><code>LogId</code></td><td><code>gcp.log.name</code></td><td><code>logName</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The mapping page names the line attribute <code>code.function.number</code>, a typo: Google reads <code>code.line.number</code>, and that is what the sink sets.</p>
+<p>Attributes that map to no typed field become labels.
+The resource of the provider carries <code>gcp.project_id</code>, and <code>service.name</code> when set.
+See <a href="#comparison-with-the-opentelemetry-tracing-bridge">Comparison with the OpenTelemetry tracing bridge</a> for entries side by side.</p>
+<p>Entries sent over OTLP store <code>trace</code> as the bare trace ID rather than <code>projects/PROJECT_ID/traces/TRACE_ID</code>, so filter them with <code>trace:"TRACE_ID"</code>, which matches both forms.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/otlp.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="field-conventions"><a class="header" href="#field-conventions">Field conventions</a></h1>
+<p>Event fields map onto Cloud Logging’s structured <code>LogEntry</code> fields as follows.
+Anything else is written verbatim into the JSON payload.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Event field</th><th>Log entry field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td><code>severity</code></td><td><code>severity</code></td><td>One of <code>DEFAULT DEBUG INFO NOTICE WARNING ERROR CRITICAL ALERT EMERGENCY</code>, matched case-insensitively. Overrides the level mapping: <code>TRACE</code> and <code>DEBUG</code> are <code>DEBUG</code>, <code>INFO</code> is <code>INFO</code>, <code>WARN</code> is <code>WARNING</code>, <code>ERROR</code> is <code>ERROR</code>; the level maps when the field is absent or not a name</td></tr>
+<tr><td><code>http_request.request_method</code>, <code>.request_url</code>, <code>.user_agent</code>, <code>.remote_ip</code>, <code>.server_ip</code>, <code>.referer</code>, <code>.protocol</code></td><td><code>httpRequest.*</code>, camel-cased</td><td>strings</td></tr>
+<tr><td><code>http_request.status</code></td><td><code>httpRequest.status</code></td><td>integer</td></tr>
+<tr><td><code>http_request.request_size</code>, <code>.response_size</code>, <code>.cache_fill_bytes</code></td><td><code>httpRequest.*</code></td><td>integers</td></tr>
+<tr><td><code>http_request.latency</code></td><td><code>httpRequest.latency</code></td><td>a duration string such as <code>"250ms"</code> or <code>"1.5s"</code>, or a number of seconds</td></tr>
+<tr><td><code>http_request.cache_lookup</code>, <code>.cache_hit</code>, <code>.cache_validated_with_origin_server</code></td><td><code>httpRequest.*</code></td><td>booleans</td></tr>
+<tr><td><code>labels.&lt;name&gt;</code></td><td><code>logging.googleapis.com/labels.&lt;name&gt;</code></td><td>value stringified</td></tr>
+<tr><td><code>operation.id</code>, <code>.producer</code></td><td><code>logging.googleapis.com/operation.{id,producer}</code></td><td>strings</td></tr>
+<tr><td><code>operation.first</code>, <code>.last</code></td><td><code>logging.googleapis.com/operation.{first,last}</code></td><td>booleans</td></tr>
+<tr><td><code>insert_id</code></td><td><code>logging.googleapis.com/insertId</code></td><td>string</td></tr>
+<tr><td>source location</td><td><code>logging.googleapis.com/sourceLocation</code></td><td>file and line; on by default, disable with <code>with_source_location(false)</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The field names are not valid Rust identifiers, so they are written as string literals in the macros:</p>
+<pre><code class="language-rust ignore">info!(
+    "labels.tenant" = "acme",
+    "http_request.request_method" = "GET",
+    "http_request.request_url" = "https://example.test/orders",
+    "http_request.status" = 200,
+    "Serving a request."
+);</code></pre>
+<p>Only the <code>httpRequest.*</code> keys are camel-cased, matching Google’s own field names; every other field name is written as given.</p>
+<p>On the <a href="#cloud-logging-api">Cloud Logging API</a> and <a href="#otlp">OTLP</a> sinks, a value that does not fit the typed field it is destined for, such as a malformed <code>latency</code>, stays in the payload instead of being dropped.</p>
+<h2 id="errors"><a class="header" href="#errors">Errors</a></h2>
+<p>An event field passed as <code>&amp;dyn Error</code> keeps its whole <code>source()</code> chain, one <code>Caused by:</code> line per source:</p>
+<pre><code class="language-rust ignore">tracing::error!(error = &amp;failure as &amp;dyn std::error::Error, "checkout failed");</code></pre>
+<p><code>error = %err</code> and <code>error = ?err</code> record only the text they format.
+See <a href="#error-reporting">Error Reporting</a> for how an error event is grouped.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="one-application-two-modes"><a class="header" href="#one-application-two-modes">One application, two modes</a></h1>
+<p>A service usually wants a console layer locally and the JSON layer once deployed, chosen by one <code>match</code> rather than duplicated <code>main</code> functions.
+<code>Option&lt;Layer&gt;</code> implements <code>Layer</code>, so exactly one sink is active per mode, without a boxed trait object or two separate subscriber types:</p>
+<pre><code class="language-rust ignore">    // `Option&lt;Layer&gt;` implements `Layer`, so both sinks are built from one `match` and composed
+    // unconditionally below. The inactive one is a `None` that costs nothing.
+    let (console_layer, json_layer) = if production {
+        (
+            None,
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
+        )
+    } else {
+        (Some(tracing_subscriber::fmt::layer()), None)
+    };
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(console_layer)
+        .with(json_layer);
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<p>The inactive layer is a <code>None</code> that costs nothing.
+Trace correlation keeps working with the logging layer wrapped in <code>Option</code>, with no extra step.</p>
+<p>The example reads the mode from <code>APP_MODE</code>, default <code>development</code>:</p>
+<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; APP_MODE=production cargo run --example logging-dev-and-prod --features logs,otlp
+</code></pre>
+<p>Run one sink in production. Writing every event to the terminal and to a network sink, as the development mode of the <code>traces-and-logs-cloud-trace-api</code> example does to show the correlation from a laptop, duplicates entries on a host that collects stdout.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="comparison-with-the-opentelemetry-tracing-bridge"><a class="header" href="#comparison-with-the-opentelemetry-tracing-bridge">Comparison with the OpenTelemetry tracing bridge</a></h1>
+<p><code>opentelemetry-appender-tracing</code> is the stock bridge from <code>tracing</code> events to OpenTelemetry log records.
+Sent to the Telemetry API, its records and those of the <a href="#otlp">OTLP sink</a> reach Cloud Logging differently, because the sink maps the conventional fields onto typed <code>LogEntry</code> fields before sending.</p>
+<p>The same event, as the bridge sends it, trimmed:</p>
+<pre><code class="language-json">{
+  "logName": "projects/my-project/logs/event%20src%2Fbin%2Fbridge.rs%3A26",
+  "severity": "INFO",
+  "textPayload": "bridge probe checkout request received",
+  "labels": {
+    "http_request.request_method": "POST",
+    "http_request.request_url": "https://example.test/orders/order-42/checkout",
+    "http_request.status": "200",
+    "labels.tenant": "acme"
+  },
+  "trace": "b5c11cf3e9cb0d1710251307eaaed739",
+  "spanId": "49f19eb158811ff5",
+  "traceSampled": true
+}
+</code></pre>
+<p>and as the OTLP sink sends it, trimmed:</p>
+<pre><code class="language-json">{
+  "logName": "projects/my-project/logs/gcloud-observability-example",
+  "severity": "INFO",
+  "jsonPayload": {
+    "message": "checkout request received",
+    "target": "logging_otlp"
+  },
+  "httpRequest": {
+    "requestMethod": "POST",
+    "requestUrl": "https://example.test/orders/order-42/checkout",
+    "status": 200,
+    "latency": "0.125s"
+  },
+  "labels": {
+    "gcp.log.name": "gcloud-observability-example",
+    "tenant": "acme"
+  },
+  "sourceLocation": { "file": "examples/logging/otlp.rs", "line": "78" },
+  "insertId": "1noy1uke8wh62",
+  "trace": "b3f6d198940b478f16da57f0c19e491b",
+  "spanId": "cbdd640d48c893e0",
+  "traceSampled": true
+}
+</code></pre>
+<p>The differences:</p>
+<ul>
+<li>the bridge writes a <code>textPayload</code> with the message only; the sink writes a <code>jsonPayload</code> with the message, the target and every other field with its type;</li>
+<li>the bridge sends every field as a string label, and the <code>http_request.*</code> fields stay labels; the sink fills the typed <code>httpRequest</code> and <code>sourceLocation</code>, and an <code>operation</code> and an <code>insertId</code> when the event has them;</li>
+<li>the bridge’s <code>logName</code> is made per call site; the sink writes every entry to the one log named by its <code>LogId</code>;</li>
+<li>both entries carry the trace and span of the enclosing span.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="error-reporting"><a class="header" href="#error-reporting">Error Reporting</a></h1>
+<p>Cloud Error Reporting groups the log entries it recognises as errors, counts them and shows them in one list.
+The logging layer writes that format on every <a href="#sinks">sink</a> when it is built with a service context:</p>
+<pre><code class="language-rust ignore">    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
+            "gcloud-observability-example",
+        )?))
+        .with_error_reporting(
+            ServiceContext::new("gcloud-observability-error-reporting-example")
+                .with_version(env!("CARGO_PKG_VERSION")),
+        )
+        .build_async()
+        .await?;
+
+    // The filter keeps the Cloud Logging client's own debug events out of the log it writes.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(log_layer);</code></pre>
+<p><code>ServiceContext::new(service)</code> names the service errors are grouped under, such as the Cloud Run service or the binary name, and <code>with_version</code> sets the deployed version Error Reporting shows beside the error.</p>
+<p>Every event at ERROR severity or above becomes an error event, including an event with a <code>severity</code> field of <code>critical</code>, <code>alert</code> or <code>emergency</code>. Other events are untouched.
+The entry gets:</p>
+<ul>
+<li><code>@type</code>, the <code>ReportedErrorEvent</code> type, which makes Error Reporting evaluate the entry;</li>
+<li><code>serviceContext</code>, from the <code>ServiceContext</code>;</li>
+<li><code>context.reportLocation</code>, from the file and line of the event, with the module path as the function name;</li>
+<li><code>context.httpRequest</code>, mapped from the <code>http_request.*</code> <a href="#field-conventions">fields</a> when the event has them;</li>
+<li>a <code>message</code> made of the event message, the error, and a <a href="#backtraces">backtrace</a>.</li>
+</ul>
+<p>Without <code>with_error_reporting</code> an error event is written like any other.</p>
+<h2 id="the-error-in-the-message"><a class="header" href="#the-error-in-the-message">The error in the message</a></h2>
+<p>Pass the error to the event as a <code>&amp;dyn Error</code>, so that its <code>source()</code> chain is kept:</p>
+<pre><code class="language-rust ignore">tracing::error!(error = &amp;failure as &amp;dyn std::error::Error, order_id, "checkout failed");</code></pre>
+<p>The first line of <code>message</code> is the event message followed by the <code>Display</code> of the error and of each source, outermost first: <code>checkout failed: payment declined: card expired</code>.
+<code>error = %err</code> and <code>error = ?err</code> record only the text they format, so the chain stops at the outer error.</p>
+<p>The chain stays on that first line, and no <code>Caused by:</code> lines follow it: Error Reporting keys a group on the cause such a line names, so unrelated errors that share a root cause would become one group.</p>
+<h2 id="grouping"><a class="header" href="#grouping">Grouping</a></h2>
+<p>Error Reporting groups errors with the same first line and error text, and it does so wherever they were logged: two call sites that log the same header and error are one group.
+A different text is a different group.
+Keep text that varies between occurrences, such as an order ID, in a field instead of the message.</p>
+<p><code>context.reportLocation</code> is always set, so grouping works without a backtrace.
+Error Reporting groups by the top frames of a stack trace when it has one.</p>
+<h2 id="otlp-sink"><a class="header" href="#otlp-sink">OTLP sink</a></h2>
+<p>On the <a href="#otlp">OTLP sink</a> the body carries the same keys, so they reach <code>jsonPayload</code>, and the severity number is 17 or above.
+The sink also sets the <code>exception.type</code> and <code>exception.message</code> attributes, which Google maps to labels.
+A <code>&amp;dyn Error</code> has no type name on stable Rust, so <code>exception.type</code> is set from an <code>exception.type</code> event field when the event has one.</p>
+<p>Entries sent over OTLP are grouped by Error Reporting like the others.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/errors/error_reporting.rs">here</a>.</p>
+<p>See Google’s <a href="https://docs.cloud.google.com/error-reporting/docs/formatting-error-messages">Formatting error messages</a> for the format.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="backtraces"><a class="header" href="#backtraces">Backtraces</a></h1>
+<p>An error event carries a backtrace when one is captured.
+The layer captures it with <code>std::backtrace::Backtrace::capture()</code> at the place the event is logged, so a capture costs nothing unless <code>RUST_BACKTRACE</code> or <code>RUST_LIB_BACKTRACE</code> enables it:</p>
+<pre><code class="language-bash">RUST_BACKTRACE=1 PROJECT_ID=&lt;your-google-project-id&gt; cargo run --example errors-error-reporting --features logs-api
+</code></pre>
+<p>Set one of the two variables in the environment of the deployed service to get backtraces in Error Reporting.
+The layer never forces a capture, so without them the entry has no backtrace.</p>
+<p>The backtrace is rendered with <code>Display</code>, as <code>std::backtrace</code> frames, and follows the first line of <code>message</code>.
+Error Reporting has accepted Rust <code>std::backtrace</code> frames since 2026-08-13, see its <a href="https://docs.cloud.google.com/error-reporting/docs/release-notes">release notes</a>, and groups errors by their top frames.
+The trace is placed in <code>message</code> only, never in <code>stack_trace</code>, because Error Reporting reads <code>stack_trace</code> before <code>message</code> and the first present wins, which would hide the first line.</p>
+<p>Error Reporting’s release note asks for debug symbols to be enabled.
+In a release build, <code>debug = "line-tables-only"</code> in <code>[profile.release]</code> keeps the file and line numbers of the frames.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="panic-hook"><a class="header" href="#panic-hook">Panic hook</a></h1>
+<p><code>install_panic_hook()</code> emits one <code>tracing</code> error event for every panic, then calls the hook that was installed before it, so the default message on stderr stays.
+Call it once, early in <code>main</code>, after the subscriber is set:</p>
+<pre><code class="language-rust ignore">    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
+            "gcloud-observability-example",
+        )?))
+        .with_error_reporting(
+            ServiceContext::new("gcloud-observability-panic-hook-example")
+                .with_version(env!("CARGO_PKG_VERSION")),
+        )
+        .build_async()
+        .await?;
+    // The filter keeps the Cloud Logging client's own debug events out of the log it writes.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(log_layer);
+    tracing::subscriber::set_global_default(subscriber)?;
+
+    install_panic_hook();</code></pre>
+<p>The event carries the panic message and <code>panic.location</code>, and <code>context.reportLocation</code> names that location rather than the hook.
+It reaches <a href="#error-reporting">Error Reporting</a> when the layer was built with <code>with_error_reporting</code>.
+The <a href="#backtraces">backtrace</a> is captured inside the hook and needs <code>RUST_BACKTRACE</code> or <code>RUST_LIB_BACKTRACE</code>.</p>
+<h2 id="flushing"><a class="header" href="#flushing">Flushing</a></h2>
+<p>The JSON lines sink writes the event before the hook returns.
+The <a href="#cloud-logging-api">Cloud Logging API</a> and <a href="#otlp">OTLP</a> sinks only queue it and send it in the background, so it is lost when the process ends first: after <code>panic = "abort"</code>, or when a panic unwinds out of <code>main</code> and nothing flushes on the way.</p>
+<p>Shut down the <code>GcpCloudLoggingHandle</code> or the logger provider before the process ends.
+The example catches the panic with <code>std::panic::catch_unwind</code> and shuts the handle down afterwards.
+A guard that shuts the logger provider down when it is dropped covers a panic that unwinds out of <code>main</code>.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/errors/panic_hook.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="choosing-an-exporter"><a class="header" href="#choosing-an-exporter">Choosing an exporter</a></h1>
+<p>Two exporters send spans to Google Cloud Trace. Neither is enabled by default.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Exporter</th><th>Feature</th><th>Sends to</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#otlp-exporter">OTLP exporter</a></td><td><code>otlp</code></td><td>the Telemetry API, <code>telemetry.googleapis.com</code>, over OTLP</td></tr>
+<tr><td><a href="#cloud-trace-api-exporter">Cloud Trace API exporter</a></td><td><code>trace-api</code></td><td>the Cloud Trace API v2, <code>cloudtrace.googleapis.com</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The Telemetry API takes traces, metrics and logs over OTLP.
+Choose <code>otlp</code> unless the case below applies. It shares credentials and an endpoint with the <a href="#otlp">OTLP log sink</a> and with <a href="#metrics-over-otlp">metrics</a>, and supports regional endpoints.</p>
+<p>Choose <code>trace-api</code> when the project is in an Assured Workloads environment with data residency or Impact Level 4 (IL4, a US Department of Defense cloud security level) requirements: do not send spans to the Telemetry API there. See the section “Cloud Trace and data residency” of the <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/v1.traces">Telemetry API traces reference</a>.</p>
+<h2 id="things-to-know-before-moving-to-otlp"><a class="header" href="#things-to-know-before-moving-to-otlp">Things to know before moving to OTLP</a></h2>
+<ul>
+<li>Keep the Cloud Trace API enabled on the project, beside the Telemetry API: with it disabled, Google Cloud Observability discards the trace data sent to the Telemetry API. See the <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/v1.traces">Telemetry API traces reference</a> and the <a href="https://docs.cloud.google.com/trace/docs/release-notes">Cloud Trace release notes</a>.</li>
+<li>The role to grant is <code>roles/telemetry.writer</code>, see <a href="#authentication">Authentication</a>.</li>
+<li>A VPC Service Controls restriction on the Telemetry API applies only to that service. The Cloud Trace API is not covered by it, so check the perimeter for the API the exporter sends to.</li>
+<li>Google notes that the Cloud Trace format can have lower limits for certain fields than OTLP, so some OTLP data may be lost or not map to Cloud Trace fields. See <a href="https://docs.cloud.google.com/trace/docs/migrate-to-otlp-endpoints">Migrate from the Cloud Trace API to OTLP endpoints</a>.</li>
+<li>A regional endpoint, <code>telemetry.REGION.rep.googleapis.com</code>, is chosen with the exporter’s <code>endpoint</code>, see <a href="#regional-endpoints">OTLP exporter</a>.</li>
+</ul>
+<p>Logging does not depend on the choice: the <a href="#the-logging-layer">logging layer</a> reads the span context from the <code>tracing-opentelemetry</code> layer, whichever exporter sits behind it.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="otlp-exporter"><a class="header" href="#otlp-exporter">OTLP exporter</a></h1>
+<p>The <code>otlp</code> feature adds <code>GcpOtlpExporterBuilder</code>, which builds OpenTelemetry exporters and providers that send spans, and with <code>logs-otlp</code> log records, to the Telemetry API through OTLP.
+It sets the endpoint, the TLS configuration, the <code>gcp.project_id</code> resource attribute and the authentication, see <a href="#authentication">Authentication</a>.</p>
+<pre><code class="language-rust ignore">    let otlp = GcpOtlpExporterBuilder::new(google_project_id).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_service_name("traces-otlp-example")
+            .build(),
+    );
+    let tracer_provider = otlp.create_provider().await?;
+    let tracer = otlp.install(&amp;tracer_provider);</code></pre>
+<p><code>create_provider</code> builds a tracer provider with a batch span processor over the exporter, and <code>install(&amp;provider)</code> returns a tracer for it.
+<code>install</code> is synchronous.
+Use <code>create_provider_from_builder</code> to start from your own <code>SdkTracerProvider::builder()</code>, with a sampler or an ID generator, for example.</p>
+<p>Spans come from the OpenTelemetry API directly:</p>
+<pre><code class="language-rust ignore">    tracer.in_span("my_parent_work", |cx| {
+        let span = cx.span();
+        span.set_attribute(KeyValue::new("http.client_ip", "42.42.42.42"));
+        span.add_event(
+            "test-event",
+            vec![KeyValue::new("test_event_attr", "test-event-value")],
+        );
+        tracer.in_span("my_child_work", |cx| {
+            cx.span().add_event(
+                "test-child-event",
+                vec![KeyValue::new("test_event_attr", "test-event-value")],
+            );
+        })
+    });</code></pre>
+<p>or from <code>tracing</code>, through the <code>tracing-opentelemetry</code> layer, which is how most Rust code creates them:</p>
+<pre><code class="language-rust ignore">    let subscriber = Registry::default().with(tracing_opentelemetry::layer().with_tracer(tracer));
+    tracing::subscriber::with_default(subscriber, || {
+        let root = span!(Level::INFO, "my_app", work_units = 2);
+        let _enter = root.enter();
+
+        span!(
+            Level::INFO,
+            "my_child",
+            work_units = 2,
+            "http.client_ip" = "42.42.42.42"
+        )
+        .in_scope(|| info!("Doing the child work."));
+
+        error!("This event is added to the root span.");
+    });</code></pre>
+<h2 id="resource"><a class="header" href="#resource">Resource</a></h2>
+<p>The provider’s resource always has <code>gcp.project_id</code> set to the project of the builder.
+A resource passed with <code>with_resource</code> is merged under it, key by key, so <code>service.name</code> is kept.
+<code>create_provider</code> starts from the OpenTelemetry SDK’s default resource.
+A builder passed to <code>create_provider_from_builder</code> without a resource of its own does not get that default: it ends up with <code>gcp.project_id</code> and the builder’s resource only, so set <code>service.name</code> on one of them.</p>
+<p>The project ID is checked when an exporter is built: an empty ID, or one with <code>/</code> or a control character, fails with <code>InvalidParametersError</code> for the field <code>google_project_id</code>.</p>
+<h2 id="span-events"><a class="header" href="#span-events">Span events</a></h2>
+<p>Span events are left out of the exported spans by default, so a <code>tracing</code> event is not shown twice in Trace Explorer, once as a span event and once as the <a href="#the-logging-layer">log entry</a> linked to the trace.
+<code>with_span_events(true)</code> keeps them.
+It applies to <code>span_exporter</code> and to every provider built from it.
+Links, attributes and status are exported either way, see <a href="#span-events-and-annotations">Span events and annotations</a>.</p>
+<pre><code class="language-rust ignore">let otlp = GcpOtlpExporterBuilder::new(google_project_id)
+    .with_span_events(true);</code></pre>
+<h2 id="regional-endpoints"><a class="header" href="#regional-endpoints">Regional endpoints</a></h2>
+<p>The default endpoint is <code>https://telemetry.googleapis.com</code>.
+A regional endpoint, <code>telemetry.REGION.rep.googleapis.com</code>, is set with <code>with_endpoint</code>, which takes a <code>TelemetryEndpoint</code>:</p>
+<pre><code class="language-rust ignore">let otlp = GcpOtlpExporterBuilder::new(google_project_id)
+    .with_endpoint("https://telemetry.europe-west1.rep.googleapis.com".parse()?);</code></pre>
+<p><code>TelemetryEndpoint</code> accepts only <code>https</code> URIs with a host, because every request carries an access token.
+TLS is verified against the host of the endpoint.</p>
+<p>Regional endpoints store log and trace data in the region. Metric data is stored there only when its location label matches the region or a zone of it.
+The endpoint does not decide where the observability bucket is created: that comes from the default settings, organisation policies and supported bucket locations.
+See <a href="https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/overview">Telemetry API overview</a>.</p>
+<h2 id="timeouts"><a class="header" href="#timeouts">Timeouts</a></h2>
+<p><code>max_export_timeout</code> bounds how long a batch export may take before the batch is dropped.
+It is the timeout of connecting, the TLS handshake included, and of every export request, and for spans also the batch processor’s bound.</p>
+<p>While it is unset, connecting, the TLS handshake and every request time out after 10 seconds, or after <code>OTEL_EXPORTER_OTLP_TIMEOUT</code> in milliseconds when that is set.
+The signal-specific <code>OTEL_EXPORTER_OTLP_TRACES_TIMEOUT</code> and <code>OTEL_EXPORTER_OTLP_LOGS_TIMEOUT</code> are not honoured.
+The span processor gives up after 30 seconds, or <code>OTEL_BSP_EXPORT_TIMEOUT</code> when that is set.</p>
+<h2 id="shutting-down-2"><a class="header" href="#shutting-down-2">Shutting down</a></h2>
+<p>Call <code>shutdown</code> on the provider before the process ends. <code>shutdown</code>, <code>force_flush</code> and dropping the provider block the calling thread until the batch task, which runs on the Tokio runtime the provider was created on, is done, so on a current-thread runtime they never return.
+Call them on a multi-threaded runtime, or from a thread outside the runtime.</p>
+<p>Shutdown exports every batch queued ahead of it, one after the other, and each may take the full timeout, so it can take the timeout once per 512 queued spans, rounded up.
+On a platform that kills the process shortly after SIGTERM, such as Cloud Run, keep that total below the time the platform allows:</p>
+<pre><code class="language-rust ignore">let otlp = GcpOtlpExporterBuilder::new(google_project_id)
+    .with_max_export_timeout(Duration::from_secs(3));</code></pre>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/traces/otlp.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cloud-trace-api-exporter"><a class="header" href="#cloud-trace-api-exporter">Cloud Trace API exporter</a></h1>
+<p>The <code>trace-api</code> feature adds <code>trace_api::GcpCloudTraceExporterBuilder</code>, an exporter for the Cloud Trace API v2 (<code>cloudtrace.googleapis.com</code>).
+It authenticates with ADC, see <a href="#authentication">Authentication</a>, and needs the <code>roles/cloudtrace.agent</code> role.</p>
+<pre><code class="language-rust ignore">    let exporter = GcpCloudTraceExporterBuilder::new(google_project_id)
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_service_name("traces-cloud-trace-api-example")
+                .build(),
+        )
+        .with_span_events(true);
+    let tracer_provider = exporter.create_provider().await?;
+    let tracer = exporter.install(&amp;tracer_provider);</code></pre>
+<p><code>create_provider</code> and <code>create_provider_from_builder</code> build a tracer provider with a batch span processor, and <code>install(&amp;provider)</code> returns a tracer.
+<code>install</code> is synchronous.
+<code>with_resource</code> sets the resource the exporter reports spans with.</p>
+<p>Spans come from the OpenTelemetry API directly:</p>
+<pre><code class="language-rust ignore">    tracer.in_span("my_parent_work", |cx| {
+        let span = cx.span();
+        span.set_attribute(KeyValue::new("http.client_ip", "42.42.42.42"));
+        span.add_event(
+            "test-event",
+            vec![KeyValue::new("test_event_attr", "test-event-value")],
+        );
+        tracer.in_span("my_child_work", |cx| {
+            cx.span().add_event(
+                "test-child-event",
+                vec![KeyValue::new("test_event_attr", "test-event-value")],
+            );
+        })
+    });</code></pre>
+<p>or from <code>tracing</code>:</p>
+<pre><code class="language-rust ignore">    let subscriber = Registry::default().with(tracing_opentelemetry::layer().with_tracer(tracer));
+    tracing::subscriber::with_default(subscriber, || {
+        let root = span!(Level::INFO, "my_app", work_units = 2);
+        let _enter = root.enter();
+
+        span!(
+            Level::INFO,
+            "my_child",
+            work_units = 2,
+            "http.client_ip" = "42.42.42.42"
+        )
+        .in_scope(|| info!("Doing the child work."));
+
+        error!("This event is added to the root span.");
+    });</code></pre>
+<h2 id="export-timeout"><a class="header" href="#export-timeout">Export timeout</a></h2>
+<p><code>with_max_export_timeout</code> bounds how long a batch export may take before the batch is dropped. It defaults to the OpenTelemetry SDK default of 30 seconds, or <code>OTEL_BSP_EXPORT_TIMEOUT</code> when that is set.
+Shutdown exports every batch queued ahead of it, one after the other, so it can take the timeout once per 512 queued spans, rounded up.
+Keep that total below the time the platform allows after SIGTERM.</p>
+<p>Shutdown blocks the calling thread until the batch task is done, so it needs a multi-threaded Tokio runtime, as for the <a href="#shutting-down-2">OTLP exporter</a>.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/traces/cloud_trace_api.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="span-events-and-annotations"><a class="header" href="#span-events-and-annotations">Span events and annotations</a></h1>
+<p><code>tracing-opentelemetry</code> records every <code>tracing</code> event inside a span as an event of that span.
+Neither exporter sends them by default. They would be reported twice, once with the span in Trace Explorer and once as a log entry by the <a href="#the-logging-layer">logging layer</a>.</p>
+<ul>
+<li>The <a href="#otlp-exporter">OTLP exporter</a> leaves them off the spans. <code>with_span_events(true)</code> on <code>GcpOtlpExporterBuilder</code>, before <code>create_provider()</code> or <code>span_exporter()</code>, sends them with the span.</li>
+<li>The <a href="#cloud-trace-api-exporter">Cloud Trace API exporter</a> does not export them. <code>with_span_events(true)</code> on <code>GcpCloudTraceExporterBuilder</code>, before <code>create_provider()</code>, exports them as annotations (<code>time_events</code>).</li>
+</ul>
+<p>Span status, links and attributes are exported either way.</p>
+<p>Events added through the OpenTelemetry API with <code>span.add_event(...)</code> are span events too, and follow the same rule.
+Whether to log an event or attach it to a span is a choice of where it is read: a log entry is searched in Logging and linked to its trace, an annotation is shown on the span in Trace Explorer.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="traces-and-logs-together"><a class="header" href="#traces-and-logs-together">Traces and logs together</a></h1>
+<p>The <code>traces-and-logs</code> examples run a request handler with a multi-level span tree and a log line at every level, one of them on a spawned task.
+In the Google Cloud console, open a trace in Trace Explorer and its “Logs” panel lists each entry under the span that emitted it, or open an entry in Logs Explorer and follow its trace link back to the waterfall.</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="img/gcloud-traces-and-logs.png" alt="Trace with correlated logs in the Google Cloud console"><span class="img-wrapper"><img src="img/gcloud-traces-and-logs.png" alt="Trace with correlated logs in the Google Cloud console"></span></label></p>
+<h2 id="with-otlp"><a class="header" href="#with-otlp">With OTLP</a></h2>
+<p>Spans go to the Telemetry API through OTLP, and so do the log records in development mode.
+<code>APP_MODE</code> (default <code>development</code>) picks the log sink:</p>
+<ul>
+<li><code>development</code>: console lines, and the same entries over OTLP from the same builder, so that a run from a laptop shows the correlated entries in the console;</li>
+<li><code>production</code>: JSON lines on stdout, which a logging agent on GKE, Cloud Run or GCE collects.</li>
+</ul>
+<pre><code class="language-rust ignore">    let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_service_name("traces-and-logs-otlp-example")
+            .build(),
+    );
+    let tracer_provider = otlp.create_provider().await?;
+    let tracer = otlp.install(&amp;tracer_provider);
+
+    // `Option&lt;Layer&gt;` implements `Layer`, so every sink is built from one `match` and composed
+    // unconditionally below: an inactive sink is a `None` that costs nothing. Development mode
+    // writes every event twice, to the terminal and over OTLP, purely so that a run from a
+    // laptop shows the correlated entries in the console with nothing else to set up. A real
+    // service picks one sink: the JSON layer where an agent collects stdout, or the OTLP layer
+    // where none does, never both.
+    let (console_layer, otlp_layer, logger_provider, json_layer) = match mode {
+        AppMode::Development =&gt; {
+            let logger_provider = otlp.create_logger_provider().await?;
+            let otlp_layer = GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
+                .with_otel_logger_provider(
+                    &amp;logger_provider,
+                    LogId::new("gcloud-observability-example")?,
+                )
+                .build()?;
+            (
+                Some(tracing_subscriber::fmt::layer()),
+                Some(otlp_layer),
+                Some(logger_provider),
+                None,
+            )
+        }
+        AppMode::Production =&gt; (
+            None,
+            None,
+            None,
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()?),
+        ),
+    };
+
+    // The OpenTelemetry layer goes before the logging layers: they read the span context it
+    // attaches, and see only what is registered ahead of them.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(console_layer)
+        .with(otlp_layer)
+        .with(json_layer);
+
+    // A global subscriber, not a scoped `with_default`, because the workload below carries a
+    // span across a `tokio::spawn` boundary onto a different thread.
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; cargo run --example traces-and-logs-otlp --features logs-otlp
+PROJECT_ID=&lt;your-google-project-id&gt; APP_MODE=production cargo run --example traces-and-logs-otlp --features logs-otlp
+</code></pre>
+<p>The development mode writes every event to the terminal and over OTLP. A service picks one sink.</p>
+<h2 id="with-the-cloud-trace-api"><a class="header" href="#with-the-cloud-trace-api">With the Cloud Trace API</a></h2>
+<p>Spans go to the Cloud Trace API and the entries to stdout, or to the Cloud Logging API:</p>
+<pre><code class="language-rust ignore">    // `Option&lt;Layer&gt;` implements `Layer`, so every sink can be built from one
+    // `match` and composed unconditionally below - an inactive sink is a
+    // `None` that costs nothing on the subscriber. Development mode writes
+    // every event twice, to the terminal and to the Cloud Logging API,
+    // purely so that a run from a laptop shows the correlated entries in the
+    // console with nothing else to set up. A real service picks one sink:
+    // the JSON layer where an agent collects stdout, or the API layer where
+    // none does - never both.
+    let (console_layer, api_layer, api_handle, json_layer) = match mode {
+        AppMode::Development =&gt; {
+            let (api_layer, api_handle) =
+                GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
+                    .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
+                        "gcloud-observability-example",
+                    )?))
+                    .build_async()
+                    .await?;
+            (
+                Some(tracing_subscriber::fmt::layer()),
+                Some(api_layer),
+                Some(api_handle),
+                None,
+            )
+        }
+        AppMode::Production =&gt; (
+            None,
+            None,
+            None,
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()?),
+        ),
+    };
+
+    // The OpenTelemetry layer must come first: the log layers read the span
+    // context that layer attaches, and only see what is registered ahead of
+    // them.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(console_layer)
+        .with(api_layer)
+        .with(json_layer);
+
+    // A global subscriber, not a scoped `with_default`, because the workload
+    // below carries a span across a `tokio::spawn` boundary onto a different
+    // thread.
+    tracing::subscriber::set_global_default(subscriber)?;</code></pre>
+<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; cargo run --example traces-and-logs-cloud-trace-api --features trace-api,logs-api
+</code></pre>
+<p>The development mode of this example writes every event to the terminal and to the Cloud Logging API, so that a run from a laptop shows the correlated entries in the console. A service picks one sink.</p>
+<h2 id="global-subscriber"><a class="header" href="#global-subscriber">Global subscriber</a></h2>
+<p>Both examples install a global subscriber, not a scoped <code>with_default</code> one, because the workload carries a span across a <code>tokio::spawn</code> boundary with <code>Instrument</code>, onto a thread a thread-local subscriber is not set on.</p>
+<p>The last console line of each example prints the trace ID together with direct links to Trace Explorer and Logs Explorer.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/traces_and_logs/otlp.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="metrics-over-otlp"><a class="header" href="#metrics-over-otlp">Metrics over OTLP</a></h1>
+<p>The library has no metrics API of its own.
+An <code>opentelemetry-otlp</code> <code>MetricExporter</code> is pointed at the Telemetry endpoint and authenticated with <code>GcpAuthInterceptor</code>, which attaches and refreshes the Google credentials of each request.
+The <code>otlp</code> feature enables the tonic transport and TLS of <code>opentelemetry-otlp</code>; enable its <code>metrics</code> feature in your own <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies]
+opentelemetry-otlp = { version = "0.33", default-features = false, features = ["metrics"] }
+</code></pre>
+<pre><code class="language-rust ignore">    let exporter = MetricExporter::builder()
+        .with_tonic()
+        .with_endpoint("https://telemetry.googleapis.com")
+        .with_tls_config(ClientTlsConfig::new().with_enabled_roots())
+        .with_interceptor(GcpAuthInterceptor::from_adc().await?)
+        .build()?;
+
+    let meter_provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(exporter)
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_service_name("metrics-otlp-example")
+                .with_attribute(KeyValue::new(
+                    "service.instance.id",
+                    "metrics-otlp-example-1",
+                ))
+                .with_attribute(KeyValue::new("cloud.region", "europe-west1"))
+                .with_attribute(KeyValue::new("gcp.project_id", google_project_id))
+                .build(),
+        )
+        .build();</code></pre>
+<p><code>GcpAuthInterceptor::from_adc()</code> uses the Application Default Credentials with the <code>cloud-platform</code> scope.
+<code>GcpAuthInterceptor::new</code> takes other <code>GoogleAuthHeaders</code>, which <code>gcloud_observability::otlp</code> re-exports.
+See <a href="#authentication">Authentication</a> for how the headers are kept current.</p>
+<h2 id="resource-attributes"><a class="header" href="#resource-attributes">Resource attributes</a></h2>
+<p>The Telemetry API places each metric by the resource it comes from, and refuses a resource that misses one of these with <code>InvalidArgument</code>:</p>
+<ul>
+<li><code>gcp.project_id</code>: the project;</li>
+<li><code>service.name</code> and <code>service.instance.id</code>: the task;</li>
+<li><code>cloud.region</code>, or <code>cloud.availability_zone</code>: where it ran. The value cannot be <code>global</code>.</li>
+</ul>
+<p>Metric data is stored on a regional endpoint only when its location label matches the region or a zone of it, see <a href="#regional-endpoints">OTLP exporter</a>.</p>
+<p>Call <code>meter_provider.shutdown()</code> before the process ends: it exports the metrics collected so far and stops the periodic reader.</p>
+<p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/metrics/otlp.rs">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tls-and-crypto-features"><a class="header" href="#tls-and-crypto-features">TLS and crypto features</a></h1>
+<p>Cargo provides support for different TLS features for dependencies:</p>
+<ul>
+<li><code>tls-roots</code>: default feature to support native TLS roots;</li>
+<li><code>tls-webpki-roots</code>: feature to switch to the roots of the <code>webpki-roots</code> crate;</li>
+<li><code>auth-default-crypto</code>: default feature with the rustls crypto provider that <code>google-cloud-auth</code> signs service account keys with.</li>
+</ul>
+<p><code>gcloud-sdk</code> needs a TLS root store, so a build with <code>default-features = false</code> enables one of the two roots features.
+The OTLP exporter follows the same choice: <code>tls-roots</code> and <code>tls-webpki-roots</code> also enable the matching roots of <code>opentelemetry-otlp</code>.</p>
+<h2 id="crypto-provider-1"><a class="header" href="#crypto-provider-1">Crypto provider</a></h2>
+<p>The default <code>auth-default-crypto</code> feature brings the aws-lc-rs rustls provider.
+The OTLP exporter’s TLS uses the same provider, so only one is compiled in.
+Be aware that aws-lc-rs is built from C sources.</p>
+<p>With <code>default-features = false</code> and without <code>auth-default-crypto</code>, install a rustls <code>CryptoProvider</code> before creating an exporter or a logging layer that talks to Google, otherwise it fails with <code>CryptoProviderMissing</code> when the credentials are a service account key:</p>
+<pre><code class="language-toml">[dependencies]
+rustls = "0.23"
+</code></pre>
+<pre><code class="language-rust ignore">rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");</code></pre>
+<p>An error like</p>
+<pre><code class="language-text">no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point
+</code></pre>
+<p>means more than one rustls provider is in the dependencies, and <code>CryptoProvider::install_default()</code> has to be called as above before creating the exporter.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="compatibility-matrix"><a class="header" href="#compatibility-matrix">Compatibility matrix</a></h1>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>gcloud-observability version</th><th>opentelemetry version</th><th>opentelemetry-otlp</th><th>tracing-opentelemetry</th><th>gcloud-sdk</th></tr>
+</thead>
+<tbody>
+<tr><td>0.31</td><td>0.33</td><td>0.33</td><td>0.34</td><td>0.33</td></tr>
+<tr><td>0.30</td><td>0.33</td><td>-</td><td>0.34</td><td>0.33</td></tr>
+<tr><td>0.29</td><td>0.33</td><td>-</td><td>0.34</td><td>0.33</td></tr>
+<tr><td>0.28</td><td>0.33</td><td>-</td><td>0.34</td><td>0.32</td></tr>
+<tr><td>0.27</td><td>0.32</td><td>-</td><td>0.33</td><td>0.32</td></tr>
+<tr><td>0.26</td><td>0.32</td><td>-</td><td>0.33</td><td>0.32</td></tr>
+<tr><td>0.25</td><td>0.32</td><td>-</td><td>0.33</td><td>0.31</td></tr>
+<tr><td>0.24</td><td>0.32</td><td>-</td><td>0.33</td><td>0.30</td></tr>
+<tr><td>0.23</td><td>0.31</td><td>-</td><td>0.32</td><td>0.29</td></tr>
+</tbody>
+</table>
+</div>
+<p>Versions up to 0.30 are published as <code>opentelemetry-gcloud-trace</code>.</p>
+<p>Minimum supported Rust version is 1.91.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="limitations"><a class="header" href="#limitations">Limitations</a></h1>
+<ul>
+<li>The exporters and the Cloud Logging API sink run on Tokio and need a Tokio runtime when they are created. Other runtimes are not supported.</li>
+<li>Shutting down a tracer provider or an OTLP logger provider blocks the calling thread, and on a current-thread runtime never returns or waits out its timeout. Shut them down on a multi-threaded runtime, or from a thread outside it. <code>GcpCloudLoggingHandle::shutdown</code> is async and has no such limit.</li>
+<li>The Cloud Logging API and OTLP sinks queue entries and send them in the background. Entries still queued when the process ends are lost, which includes a panic that unwinds out of <code>main</code>, see <a href="#panic-hook">Panic hook</a>.</li>
+<li>The Cloud Logging API sink drops entries when its queue is full.</li>
+<li>The Cloud Logging API and OTLP sinks skip events from the transport crates they export through, see <a href="#sinks">Sinks</a>.</li>
+<li>The OTLP exporters send only to <code>https</code> endpoints.</li>
+<li>The signal-specific <code>OTEL_EXPORTER_OTLP_TRACES_TIMEOUT</code> and <code>OTEL_EXPORTER_OTLP_LOGS_TIMEOUT</code> are not honoured, see <a href="#timeouts">OTLP exporter</a>.</li>
+<li>A provider builder passed to <code>create_provider_from_builder</code> without a resource gets only <code>gcp.project_id</code> and the builder’s resource.</li>
+<li>There is no metrics API: <a href="#metrics-over-otlp">metrics</a> use <code>opentelemetry-otlp</code> with <code>GcpAuthInterceptor</code>.</li>
+<li>A <code>&amp;dyn Error</code> event field keeps its <code>source()</code> chain; <code>error = %err</code> and <code>error = ?err</code> keep only the text.</li>
+<li>An error event has a backtrace only when <code>RUST_BACKTRACE</code> or <code>RUST_LIB_BACKTRACE</code> is set.</li>
+<li>The logging layer wrapped in <code>Option</code>, <code>Box&lt;dyn Layer&gt;</code> or a per-layer filter, under a scoped subscriber, is correlated with the span entered on the thread, not with an event’s explicit <code>parent:</code>.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<h2 id="could-not-resolve-host-for-telemetrygoogleapiscom"><a class="header" href="#could-not-resolve-host-for-telemetrygoogleapiscom">Could not resolve host for telemetry.googleapis.com</a></h2>
+<p>DNS filters such as dnscrypt-proxy, Pi-hole and corporate blocklists often block every <code>telemetry.*</code> name.
+The example blocklist of dnscrypt-proxy, which OpenWrt enables, is one of them.
+The Telemetry API and its regional endpoints then fail with “could not resolve host”.</p>
+<p>Allowlist <code>telemetry.googleapis.com</code> and <code>telemetry.*.rep.googleapis.com</code>.
+The upstream report is <a href="https://github.com/openwrt/packages/issues/31291">openwrt/packages#31291</a>.</p>
+<h2 id="no-trace-or-span-on-the-log-entries"><a class="header" href="#no-trace-or-span-on-the-log-entries">No trace or span on the log entries</a></h2>
+<p>The logging layer is registered before <code>tracing_opentelemetry::layer()</code>, or that layer is missing.
+Register the OpenTelemetry layer first, see <a href="#layer-ordering">The logging layer</a>.
+The layer prints a warning to stderr the first time it finds a span without context.</p>
+<h2 id="cryptoprovidermissing"><a class="header" href="#cryptoprovidermissing">CryptoProviderMissing</a></h2>
+<p>The credentials are a service account key and no rustls crypto provider is installed.
+Enable <code>auth-default-crypto</code>, or install a provider, see <a href="#tls-and-crypto-features">TLS and crypto features</a>.</p>
+<h2 id="entries-or-spans-are-missing-at-the-end-of-a-run"><a class="header" href="#entries-or-spans-are-missing-at-the-end-of-a-run">Entries or spans are missing at the end of a run</a></h2>
+<p>Queued entries and spans are exported in the background.
+Shut down the tracer provider, the logger provider or the <code>GcpCloudLoggingHandle</code> before the process ends.
+A provider shutdown on a current-thread Tokio runtime does not export, see <a href="#limitations">Limitations</a>.</p>
+<h2 id="invalidparameterserror"><a class="header" href="#invalidparameterserror">InvalidParametersError</a></h2>
+<p>A value was refused before it was used. The field names it: <code>google_project_id</code> (empty, or containing <code>/</code> or a control character), <code>log_id</code> (1 to 511 letters, digits and <code>/ _ - .</code>) or <code>endpoint</code> (an <code>https</code> URI with a host).</p>
+<h2 id="metrics-are-refused-with-invalidargument"><a class="header" href="#metrics-are-refused-with-invalidargument">Metrics are refused with InvalidArgument</a></h2>
+<p>The resource lacks <code>service.instance.id</code> or a real <code>cloud.region</code>, see <a href="#resource-attributes">Metrics over OTLP</a>.</p>
+<h2 id="permission-denied"><a class="header" href="#permission-denied">Permission denied</a></h2>
+<p>Check the API is enabled and the role is granted for the service, see <a href="#authentication">Authentication</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="migration-guide"><a class="header" href="#migration-guide">Migration guide</a></h1>
+<h2 id="031"><a class="header" href="#031">0.31</a></h2>
+<p>The crate is renamed from <code>opentelemetry-gcloud-trace</code> to <code>gcloud-observability</code>, and its Cloud Trace API exporter moves behind a feature.</p>
+<p>The crate is no longer trace-only.
+With Google’s Telemetry API, which takes OTLP, a trace exporter alone adds little over <code>opentelemetry-otlp</code>.
+The value of the library is the Cloud Logging layer, Error Reporting and the authentication of OTLP exporters, so the name says what the crate is for.</p>
+<ul>
+<li>Version numbers continue from 0.30: the first release under the new name is 0.31.0.</li>
+<li><code>opentelemetry-gcloud-trace</code> 0.31.0 is a forwarding crate. It re-exports <code>gcloud-observability</code>, with the same feature names, so a dependency on the old name keeps building. The breaking changes below apply to it as well.</li>
+<li>The GitHub repository is <code>abdolence/gcloud-observability-rs</code>. The old URL redirects.</li>
+</ul>
+<p>Changes to make:</p>
+<ul>
+<li>the dependency is renamed, and <code>trace-api</code> or <code>otlp</code> is added to its features;</li>
+<li>the exporter types move to modules, and the error types are renamed;</li>
+<li><code>install</code> is synchronous, and <code>GcpCloudLoggingLayerBuilder::build()</code> returns a <code>Result</code>;</li>
+<li>the log ID is a <code>LogId</code>;</li>
+<li>the example names changed;</li>
+<li>the instrumentation scope name changed.</li>
+</ul>
+<p>The project ID is checked, and errors report their source differently, without a build failing.</p>
+<h3 id="dependency-and-features"><a class="header" href="#dependency-and-features">Dependency and features</a></h3>
+<p>Rename the dependency and its <code>use</code> paths:</p>
+<pre><code class="language-diff">-opentelemetry-gcloud-trace = "0.30"
++gcloud-observability = { version = "0.31", features = ["trace-api"] }
+</code></pre>
+<pre><code class="language-diff">-use opentelemetry_gcloud_trace::...;
++use gcloud_observability::...;
+</code></pre>
+<p>Without the rename, <code>opentelemetry-gcloud-trace = { version = "0.31", features = ["trace-api"] }</code> works, and the paths keep the old crate name: <code>opentelemetry_gcloud_trace::trace_api::...</code>.</p>
+<p>No exporter is enabled by default in 0.31.
+The exporter of 0.30 is the Cloud Trace API exporter, so <code>features = ["trace-api"]</code> keeps the behaviour.
+To export through the Telemetry API instead, use <code>features = ["otlp"]</code> and <code>GcpOtlpExporterBuilder</code>, see <a href="https://gcloud-observability-rust.abdolence.dev/traces/choosing.html">Choosing an exporter</a>.</p>
+<p><code>logs</code>, <code>logs-api</code>, <code>tls-roots</code>, <code>tls-webpki-roots</code> and <code>auth-default-crypto</code> keep their names.
+<code>logs-otlp</code> and <code>otlp</code> are new.</p>
+<h3 id="module-paths"><a class="header" href="#module-paths">Module paths</a></h3>
+<p>Nothing is re-exported at the crate root:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>0.30</th><th>0.31</th></tr>
+</thead>
+<tbody>
+<tr><td><code>opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder</code></td><td><code>gcloud_observability::trace_api::GcpCloudTraceExporterBuilder</code></td></tr>
+<tr><td><code>opentelemetry_gcloud_trace::GcpCloudTraceExporter</code></td><td><code>gcloud_observability::trace_api::GcpCloudTraceExporter</code></td></tr>
+<tr><td><code>opentelemetry_gcloud_trace::SdkTracer</code></td><td>removed; use <code>opentelemetry_sdk::trace::Tracer</code></td></tr>
+<tr><td><code>opentelemetry_gcloud_trace::TraceExportResult</code></td><td><code>gcloud_observability::errors::GcloudObservabilityResult</code></td></tr>
+<tr><td><code>opentelemetry_gcloud_trace::logs::*</code></td><td><code>gcloud_observability::logs::*</code></td></tr>
+<tr><td><code>opentelemetry_gcloud_trace::errors::*</code></td><td><code>gcloud_observability::errors::*</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="error-types"><a class="header" href="#error-types">Error types</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>0.30</th><th>0.31</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GcloudTraceError</code></td><td><code>GcloudObservabilityError</code></td></tr>
+<tr><td><code>GcloudTraceSystemError</code></td><td><code>GcloudObservabilitySystemError</code></td></tr>
+<tr><td><code>GcloudTraceNetworkError</code></td><td><code>GcloudObservabilityNetworkError</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>GcloudObservabilityError</code> has a new variant, <code>InvalidParametersError</code>, so a <code>match</code> that lists every variant needs an arm for it.</p>
+<h3 id="error-display-and-source"><a class="header" href="#error-display-and-source">Error display and source</a></h3>
+<p>The format of <code>Display</code> is unchanged.
+<code>source()</code> of <code>GcloudObservabilityError</code> returns the root cause of the inner error, or none, where 0.30 returned the inner error that <code>Display</code> had already printed.
+A program that prints the chain, such as <code>anyhow</code> or a <code>tracing</code> event with a <code>&amp;dyn Error</code> field, shows each error once.</p>
+<p>An error from <code>gcloud-sdk</code> has the message <code>Google SDK error</code> and the <code>gcloud-sdk</code> error as its source, where 0.30 put the source’s text in the message.
+Code that matches on the message text needs to read the source instead.</p>
+<h3 id="install-is-synchronous"><a class="header" href="#install-is-synchronous">Install is synchronous</a></h3>
+<p><code>install</code> takes <code>&amp;self</code>, returns the tracer directly and has no <code>await</code>:</p>
+<pre><code class="language-diff">-let tracer = gcp_trace_exporter.install(&amp;tracer_provider).await?;
++let tracer = gcp_trace_exporter.install(&amp;tracer_provider);
+</code></pre>
+<h3 id="building-the-logging-layer"><a class="header" href="#building-the-logging-layer">Building the logging layer</a></h3>
+<p><code>GcpCloudLoggingLayerBuilder::build()</code> returns a <code>Result</code>: it refuses an invalid project ID.</p>
+<pre><code class="language-diff">-let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
++let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build()?;
+</code></pre>
+<h3 id="log-id"><a class="header" href="#log-id">Log ID</a></h3>
+<p><code>GcpCloudLoggingApiConfig::new</code> takes a <code>LogId</code> in place of a string.
+<code>LogId</code> is 1 to 511 letters, digits and <code>/ _ - .</code>, and is checked when it is created:</p>
+<pre><code class="language-diff">-GcpCloudLoggingApiConfig::new("my-service")
++GcpCloudLoggingApiConfig::new(LogId::new("my-service")?)
+</code></pre>
+<p><code>LogId::from_static("my-service")</code> checks a constant at compile time.
+<code>LogId</code> is in <code>gcloud_observability::ids</code>.
+A <code>/</code> in the log ID is URL-encoded as <code>%2F</code> in the <code>logName</code>, as Cloud Logging stores it.</p>
+<h3 id="project-id"><a class="header" href="#project-id">Project ID</a></h3>
+<p>Building an exporter or a logging layer refuses a project ID that is empty or contains <code>/</code> or a control character, with <code>InvalidParametersError</code> for the field <code>google_project_id</code>.</p>
+<h3 id="example-names"><a class="header" href="#example-names">Example names</a></h3>
+<p>The examples are named after their goal, and each has <code>required-features</code> in <code>Cargo.toml</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>0.30</th><th>0.31</th></tr>
+</thead>
+<tbody>
+<tr><td><code>enable-exporter</code></td><td><code>traces-cloud-trace-api</code>, <code>traces-otlp</code></td></tr>
+<tr><td><code>tracing-exporter</code></td><td><code>traces-cloud-trace-api</code>, <code>traces-otlp</code></td></tr>
+<tr><td><code>traces-and-logs</code></td><td><code>traces-and-logs-cloud-trace-api</code>, <code>traces-and-logs-otlp</code></td></tr>
+<tr><td><code>logging</code></td><td><code>logging-dev-and-prod</code></td></tr>
+<tr><td><code>logging-only-api</code></td><td><code>logging-cloud-logging-api</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>quickstart</code>, <code>logging-otlp</code>, <code>errors-error-reporting</code>, <code>errors-panic-hook</code> and <code>metrics-otlp</code> are new.</p>
+<h3 id="instrumentation-scope-name"><a class="header" href="#instrumentation-scope-name">Instrumentation scope name</a></h3>
+<p>The tracer returned by <code>install</code> has the instrumentation scope name <code>gcloud-observability</code>, where 0.30 used <code>opentelemetry-gcloud</code>.
+Update a filter or a query that selects spans by the scope name.</p>
+<h3 id="events-written-by-the-logging-layer"><a class="header" href="#events-written-by-the-logging-layer">Events written by the logging layer</a></h3>
+<p>An event field recorded as a <code>&amp;dyn Error</code> keeps its whole <code>source()</code> chain, one <code>Caused by:</code> line per source.
+<code>error = %err</code> and <code>error = ?err</code> record the text only, as before.</p>
+<p>The Cloud Logging API sink and the OTLP sink skip events from the crates they export through (<code>h2</code>, <code>hyper</code>, <code>tonic</code>, <code>tower</code>, <code>rustls</code>, <code>gcloud_sdk</code>, <code>opentelemetry*</code>), because at DEBUG every export would make events that are exported in turn.
+The JSON lines sink writes them.</p>
+<h3 id="new-in-031"><a class="header" href="#new-in-031">New in 0.31</a></h3>
+<ul>
+<li>The <a href="https://gcloud-observability-rust.abdolence.dev/traces/otlp.html">OTLP exporter</a> for the Telemetry API, and the OTLP log sink. The OTLP log processor exports on a thread of its own, and reports a failed export as an <code>ERROR</code> <code>tracing</code> event with the <code>opentelemetry_sdk</code> target. The OTLP trace exporter does not send span events unless <code>with_span_events(true)</code> is set, as with the Cloud Trace API exporter.</li>
+<li><a href="https://gcloud-observability-rust.abdolence.dev/errors/error-reporting.html">Error Reporting</a>, with backtraces and a panic hook.</li>
+<li><code>GcpAuthInterceptor</code>, to authenticate any OTLP exporter, see <a href="https://gcloud-observability-rust.abdolence.dev/metrics.html">Metrics over OTLP</a>.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="migrating-from-tracing-stackdriver"><a class="header" href="#migrating-from-tracing-stackdriver">Migrating from tracing-stackdriver</a></h1>
+<p>Swap the <code>tracing-stackdriver</code> layer for <code>GcpCloudLoggingLayer</code> at the same position in the subscriber stack:</p>
+<pre><code class="language-diff">- .with(tracing_stackdriver::layer().with_cloud_trace(
+-     tracing_stackdriver::CloudTraceConfiguration { project_id },
+- ))
++ .with(gcloud_observability::logs::GcpCloudLoggingLayerBuilder::new(project_id).build()?)
+</code></pre>
+<p>The layer reads the trace and span IDs through the public <code>tracing-opentelemetry</code> API, so register <code>tracing_opentelemetry::layer()</code> before it, see <a href="#layer-ordering">The logging layer</a>.</p>
+<p>Two things change in the emitted log lines:</p>
+<ul>
+<li>there is no <code>span</code> or <code>spans</code> object carrying the enclosing span’s name and fields: the span attributes live on the trace, and are not repeated into every log line;</li>
+<li>event field names are written as given, not camel-cased; only the <code>httpRequest.*</code> keys are camel-cased, matching Google’s own field names, see <a href="#field-conventions">Field conventions</a>.</li>
+</ul>
+<p>A layer has one <a href="#sinks">sink</a>. JSON lines on stdout, the default, fit GKE, Cloud Run and hosts with the Cloud Logging agent.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
