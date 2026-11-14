@@ -1,8 +1,9 @@
-//! A multi-level span hierarchy with a log line at every level, so that the
-//! Google Cloud console shows trace/log correlation end to end: open the
-//! trace in Trace Explorer and its "Logs" panel lists each of these events
-//! under the span that emitted it, or open one of the log entries in Logs
-//! Explorer and follow its trace link back to the waterfall below.
+//! Spans exported through the Cloud Trace API, and log entries with the trace and span they were
+//! logged in, so that the Google Cloud console shows trace/log correlation end to end. The
+//! workload is a multi-level span hierarchy with a log line at every level: open the trace in
+//! Trace Explorer and its "Logs" panel lists each of these events under the span that emitted
+//! it, or open one of the log entries in Logs Explorer and follow its trace link back to the
+//! waterfall.
 //!
 //! `APP_MODE` (default `development`) picks the log sink. `development`
 //! prints human-readable lines to the console and, as a demo convenience,
@@ -16,13 +17,13 @@
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
+//! PROJECT_ID=your-project cargo run --example traces-and-logs-cloud-trace-api --features trace-api,logs-api
 //! ```
 //!
 //! or, for the JSON-only variant:
 //!
 //! ```sh
-//! PROJECT_ID=your-project APP_MODE=production cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs-cloud-trace-api --features trace-api,logs-api
 //! ```
 
 use gcloud_observability::ids::LogId;
@@ -34,10 +35,6 @@ use tracing::*;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
-
-pub fn config_env_var(name: &str) -> Result<String, String> {
-    std::env::var(name).map_err(|e| format!("{}: {}", name, e))
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AppMode {
@@ -124,22 +121,19 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id = std::env::var("PROJECT_ID")?;
     let mode = AppMode::from_env();
 
     let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
         .with_resource(
             opentelemetry_sdk::Resource::builder()
-                .with_attributes(vec![opentelemetry::KeyValue::new(
-                    "service.name",
-                    "traces-and-logs-example",
-                )])
+                .with_service_name("traces-and-logs-cloud-trace-api-example")
                 .build(),
         );
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer = gcp_trace_exporter.install(&tracer_provider);
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
+    // ANCHOR: layers
     // `Option<Layer>` implements `Layer`, so every sink can be built from one
     // `match` and composed unconditionally below - an inactive sink is a
     // `None` that costs nothing on the subscriber. Development mode writes
@@ -152,9 +146,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         AppMode::Development => {
             let (api_layer, api_handle) =
                 GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
-                    .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
+                    .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
                         "gcloud-observability-example",
-                    )))
+                    )?))
                     .build_async()
                     .await?;
             (
@@ -186,6 +180,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // below carries a span across a `tokio::spawn` boundary onto a different
     // thread.
     tracing::subscriber::set_global_default(subscriber)?;
+    // ANCHOR_END: layers
 
     let root = info_span!("handle_request", order_id = "order-42", tenant = "acme");
     let trace_id = {

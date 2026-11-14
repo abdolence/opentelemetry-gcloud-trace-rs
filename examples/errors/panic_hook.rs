@@ -17,10 +17,6 @@ use gcloud_observability::logs::{
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
-pub fn config_env_var(name: &str) -> Result<String, String> {
-    std::env::var(name).map_err(|e| format!("{}: {}", name, e))
-}
-
 fn adjust_inventory(stock: u32, sold: u32) -> u32 {
     assert!(
         sold <= stock,
@@ -31,12 +27,13 @@ fn adjust_inventory(stock: u32, sold: u32) -> u32 {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id = std::env::var("PROJECT_ID")?;
 
+    // ANCHOR: layer
     let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
             "gcloud-observability-example",
-        )))
+        )?))
         .with_error_reporting(
             ServiceContext::new("gcloud-observability-panic-hook-example")
                 .with_version(env!("CARGO_PKG_VERSION")),
@@ -50,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing::subscriber::set_global_default(subscriber)?;
 
     install_panic_hook();
+    // ANCHOR_END: layer
 
     let outcome = std::panic::catch_unwind(|| adjust_inventory(1, std::hint::black_box(2)));
     tracing::info!(panicked = outcome.is_err(), "the panic was caught");

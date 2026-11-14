@@ -66,31 +66,24 @@ tracing-opentelemetry = { version = "0.34" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
 rustls = "0.23"
 serde_json = "1"
+# The metrics example builds an `opentelemetry-otlp` `MetricExporter` itself; the library
+# has no metrics API.
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["metrics"] }
 
 [[example]]
-name = "trace-api-basic"
-path = "examples/trace_api/basic.rs"
-required-features = ["trace-api"]
+name = "quickstart"
+path = "examples/quickstart.rs"
+required-features = ["logs", "otlp"]
 
 [[example]]
-name = "trace-api-tracing"
-path = "examples/trace_api/tracing.rs"
-required-features = ["trace-api"]
+name = "logging-json"
+path = "examples/logging/json.rs"
+required-features = ["logs", "otlp"]
 
 [[example]]
-name = "trace-api-traces-and-logs"
-path = "examples/trace_api/traces_and_logs.rs"
-required-features = ["trace-api", "logs-api"]
-
-[[example]]
-name = "logs-json"
-path = "examples/logs/json.rs"
-required-features = ["logs", "trace-api"]
-
-[[example]]
-name = "logs-api"
-path = "examples/logs/api.rs"
-required-features = ["logs-api", "trace-api"]
+name = "logging-cloud-logging-api"
+path = "examples/logging/cloud_logging_api.rs"
+required-features = ["logs-api", "otlp"]
 
 [[example]]
 name = "logging-otlp"
@@ -106,3 +99,28 @@ required-features = ["logs-api"]
 name = "errors-panic-hook"
 path = "examples/errors/panic_hook.rs"
 required-features = ["logs-api"]
+
+[[example]]
+name = "traces-otlp"
+path = "examples/traces/otlp.rs"
+required-features = ["otlp"]
+
+[[example]]
+name = "traces-cloud-trace-api"
+path = "examples/traces/cloud_trace_api.rs"
+required-features = ["trace-api"]
+
+[[example]]
+name = "traces-and-logs-otlp"
+path = "examples/traces_and_logs/otlp.rs"
+required-features = ["logs-otlp"]
+
+[[example]]
+name = "traces-and-logs-cloud-trace-api"
+path = "examples/traces_and_logs/cloud_trace_api.rs"
+required-features = ["trace-api", "logs-api"]
+
+[[example]]
+name = "metrics-otlp"
+path = "examples/metrics/otlp.rs"
+required-features = ["otlp"]

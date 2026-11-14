@@ -20,10 +20,6 @@ use std::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
-pub fn config_env_var(name: &str) -> Result<String, String> {
-    std::env::var(name).map_err(|e| format!("{}: {}", name, e))
-}
-
 #[derive(Debug)]
 struct CardExpired;
 
@@ -68,12 +64,13 @@ fn reserve_stock(sku: &str) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id = std::env::var("PROJECT_ID")?;
 
+    // ANCHOR: layer
     let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
             "gcloud-observability-example",
-        )))
+        )?))
         .with_error_reporting(
             ServiceContext::new("gcloud-observability-error-reporting-example")
                 .with_version(env!("CARGO_PKG_VERSION")),
@@ -85,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let subscriber = Registry::default()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(log_layer);
+    // ANCHOR_END: layer
     tracing::subscriber::with_default(subscriber, || {
         tracing::info!("not an error, so left untouched");
         for order_id in ["order-1", "order-2", "order-3"] {
