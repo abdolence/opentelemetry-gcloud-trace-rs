@@ -11,6 +11,7 @@ mod trace;
 
 pub use auth::GcpAuthInterceptor;
 pub use endpoint::TelemetryEndpoint;
+pub use trace::GcpOtlpSpanExporter;
 
 /// The Google credentials' headers [`GcpAuthInterceptor::new`] and
 /// [`GcpOtlpExporterBuilder::auth_headers`] take, re-exported so callers need not depend on
@@ -77,6 +78,11 @@ pub struct GcpOtlpExporterBuilder {
     /// it is set, and the span processor gives up after 30 seconds, or
     /// `OTEL_BSP_EXPORT_TIMEOUT`.
     pub max_export_timeout: Option<Duration>,
+    /// Exports span events, the `tracing` events inside a span among them, with their spans.
+    /// Defaults to `false` since span events are commonly captured by a logging layer as well,
+    /// and would show twice in Trace Explorer. Applies to [`Self::span_exporter`] and every
+    /// provider built from it.
+    pub span_events: Option<bool>,
     /// The credentials exports are authenticated with. Defaults to the Application Default
     /// Credentials with the `cloud-platform` scope. Read by the first exporter or
     /// [`Self::auth_interceptor`] call; every later one shares those credentials.

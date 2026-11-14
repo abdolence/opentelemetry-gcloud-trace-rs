@@ -32,6 +32,18 @@ A builder passed to `create_provider_from_builder` without a resource of its own
 
 The project ID is checked when an exporter is built: an empty ID, or one with `/` or a control character, fails with `InvalidParametersError` for the field `google_project_id`.
 
+## Span events
+
+Span events are left out of the exported spans by default, so a `tracing` event is not shown twice in Trace Explorer, once as a span event and once as the [log entry](../logging/layer.md) linked to the trace.
+`with_span_events(true)` keeps them.
+It applies to `span_exporter` and to every provider built from it.
+Links, attributes and status are exported either way, see [Span events and annotations](./span-events.md).
+
+```rust,ignore
+let otlp = GcpOtlpExporterBuilder::new(google_project_id)
+    .with_span_events(true);
+```
+
 ## Regional endpoints
 
 The default endpoint is `https://telemetry.googleapis.com`.

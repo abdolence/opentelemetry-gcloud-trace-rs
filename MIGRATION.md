@@ -143,6 +143,6 @@ The JSON lines sink writes them.
 
 ### New in 0.31
 
-- The [OTLP exporter](https://gcloud-observability-rust.abdolence.dev/traces/otlp.html) for the Telemetry API, and the OTLP log sink. The OTLP log processor exports on a thread of its own, and reports a failed export as an `ERROR` `tracing` event with the `opentelemetry_sdk` target.
+- The [OTLP exporter](https://gcloud-observability-rust.abdolence.dev/traces/otlp.html) for the Telemetry API, and the OTLP log sink. The OTLP log processor exports on a thread of its own, and reports a failed export as an `ERROR` `tracing` event with the `opentelemetry_sdk` target. The OTLP trace exporter does not send span events unless `with_span_events(true)` is set, as with the Cloud Trace API exporter.
 - [Error Reporting](https://gcloud-observability-rust.abdolence.dev/errors/error-reporting.html), with backtraces and a panic hook.
 - `GcpAuthInterceptor`, to authenticate any OTLP exporter, see [Metrics over OTLP](https://gcloud-observability-rust.abdolence.dev/metrics.html).
