@@ -72,6 +72,16 @@ impl From<gcloud_sdk::tonic::Status> for GcloudTraceError {
     }
 }
 
+#[cfg(feature = "otlp")]
+impl From<opentelemetry_otlp::ExporterBuildError> for GcloudTraceError {
+    fn from(error: opentelemetry_otlp::ExporterBuildError) -> Self {
+        GcloudTraceError::SystemError(
+            GcloudTraceSystemError::new(format!("OTLP exporter error: {error}"))
+                .with_root_cause(Box::new(error)),
+        )
+    }
+}
+
 impl ExportError for GcloudTraceError {
     fn exporter_name(&self) -> &'static str {
         "GoogleCloudTraceExporter"

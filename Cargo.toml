@@ -17,6 +17,9 @@ include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE", "SECURITY.md"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "opentelemetry_gcloud_trace"
 path = "src/lib.rs"
@@ -37,21 +40,24 @@ tracing-opentelemetry = { version = "0.34", optional = true }
 serde_json = { version = "1", optional = true }
 time = { version = "0.3", features = ["formatting", "parsing"], optional = true }
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"], optional = true }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["grpc-tonic", "trace", "tls-provider-agnostic"], optional = true }
 
 [features]
 default = ["tls-roots", "logs", "auth-default-crypto"]
-tls-roots = ["gcloud-sdk/tls-roots"]
-tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots"]
+tls-roots = ["gcloud-sdk/tls-roots", "opentelemetry-otlp?/tls-roots"]
+tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots", "opentelemetry-otlp?/tls-webpki-roots"]
 # The rustls crypto provider google-cloud-auth signs service account keys with.
 # Without it, or another provider installed by the application, building the
-# exporter fails with `ErrorKind::CryptoProviderMissing`.
-auth-default-crypto = ["gcloud-sdk/auth-default-crypto"]
+# exporter fails with `ErrorKind::CryptoProviderMissing`. The OTLP exporter's
+# TLS uses the same provider, aws-lc-rs, so only one is compiled in.
+auth-default-crypto = ["gcloud-sdk/auth-default-crypto", "opentelemetry-otlp?/tls-aws-lc"]
 logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json", "dep:time"]
 # `gcloud-sdk/google-logging-v2` already pulls in `google.logging.type` and
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
 logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
 trace-api = ["gcloud-sdk/google-devtools-cloudtrace-v2"]
-otlp = ["dep:tokio"]
+otlp = ["dep:opentelemetry-otlp", "dep:tokio"]
+logs-otlp = ["logs", "otlp", "opentelemetry-otlp/logs", "opentelemetry_sdk/experimental_logs_batch_log_processor_with_async_runtime"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }

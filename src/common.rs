@@ -1,9 +1,9 @@
 //! Helpers shared by the exporters and the logging layer.
 
 use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
-#[cfg(feature = "trace-api")]
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
 use opentelemetry::{trace::TracerProvider, InstrumentationScope};
-#[cfg(feature = "trace-api")]
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
 use opentelemetry_sdk::{
     runtime,
     trace::{
@@ -11,7 +11,7 @@ use opentelemetry_sdk::{
         SdkTracerProvider, SpanExporter, Tracer,
     },
 };
-#[cfg(feature = "trace-api")]
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
 use std::time::Duration;
 
 pub(crate) async fn detect_google_project_id() -> TraceExportResult<String> {
@@ -26,7 +26,7 @@ pub(crate) async fn detect_google_project_id() -> TraceExportResult<String> {
 
 // The async-runtime batch processor rather than the SDK's default thread-based one:
 // exporters built on tonic need the Tokio reactor, which the processor's own thread lacks.
-#[cfg(feature = "trace-api")]
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
 pub(crate) fn batch_span_processor(
     exporter: impl SpanExporter + 'static,
     max_export_timeout: Option<Duration>,
@@ -40,7 +40,7 @@ pub(crate) fn batch_span_processor(
         .build()
 }
 
-#[cfg(feature = "trace-api")]
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
 pub(crate) fn tracer(provider: &SdkTracerProvider) -> Tracer {
     let scope = InstrumentationScope::builder("opentelemetry-gcloud")
         .with_version(env!("CARGO_PKG_VERSION"))

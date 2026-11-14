@@ -1,16 +1,20 @@
 //! # Google Cloud Trace and Cloud Logging for OpenTelemetry and tracing
 //!
-//! The crate covers two uses, separately or together:
-//! - an OpenTelemetry span exporter for Google Cloud Trace,
+//! The crate covers three uses, separately or together:
+//! - an OpenTelemetry span exporter for the Cloud Trace API,
 //!   `trace_api::GcpCloudTraceExporterBuilder` under the `trace-api` feature;
+//! - OpenTelemetry span and log exporters for the Telemetry API
+//!   (`telemetry.googleapis.com`), which takes OTLP,
+//!   `otlp::GcpOtlpExporterBuilder` under the `otlp` feature, with the log
+//!   exporter under `logs-otlp`;
 //! - a `tracing-subscriber` layer for the `tracing` crate that writes
 //!   structured Google Cloud Logging entries, correlated with the trace and
 //!   span that emitted them through the public `tracing-opentelemetry`
 //!   context API; see the [`logs`] module.
 //!
-//! The `logs` feature (default) enables the logging layer with JSON lines
-//! written to stdout; `logs-api` adds a sink writing through the Cloud
-//! Logging API.
+//! Neither exporter is enabled by default. The `logs` feature (default)
+//! enables the logging layer with JSON lines written to stdout; `logs-api`
+//! adds a sink writing through the Cloud Logging API.
 //!
 //! ## Performance
 //!
@@ -67,7 +71,7 @@
 
 #![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
-#[cfg(any(feature = "logs", feature = "trace-api"))]
+#[cfg(any(feature = "logs", feature = "trace-api", feature = "otlp"))]
 mod common;
 pub mod errors;
 

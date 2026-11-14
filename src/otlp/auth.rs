@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 
-/// Polling is cheap: the credentials answer from their cache until they hold a new token.
+// Polling is cheap: the credentials answer from their cache until they hold a new token.
 const AUTH_HEADERS_REFRESH_INTERVAL: Duration = Duration::from_secs(5);
 
 /// A tonic [`Interceptor`] that sets the headers of Google credentials on every request:
