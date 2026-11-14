@@ -1,63 +1,37 @@
 #![cfg(feature = "logs")]
 
+mod common;
+
+use common::{SharedBuffer, TEST_PROJECT};
+use gcloud_observability::errors::GcloudObservabilityError;
+use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry::trace::TracerProvider;
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry_sdk::trace::{
     InMemorySpanExporter, Sampler, SdkTracerProvider, SimpleSpanProcessor,
 };
-use serde_json::Value;
-use std::io::Write;
-use std::sync::{Arc, Mutex};
-use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::Registry;
 
-#[derive(Clone, Default)]
-struct SharedBuffer(Arc<Mutex<Vec<u8>>>);
+#[test]
+fn project_id_that_would_break_a_resource_name_is_refused_on_build() {
+    let result = GcpCloudLoggingLayerBuilder::new("orders/prod")
+        .with_json_writer(SharedBuffer::default())
+        .build();
 
-impl SharedBuffer {
-    fn lines(&self) -> Vec<Value> {
-        let buffer = self
-            .0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests");
-        String::from_utf8_lossy(&buffer)
-            .lines()
-            .map(|line| serde_json::from_str(line).expect("sink writes one JSON object per line"))
-            .collect()
-    }
-}
-
-struct SharedBufferWriter(Arc<Mutex<Vec<u8>>>);
-
-impl Write for SharedBufferWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests")
-            .extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> MakeWriter<'a> for SharedBuffer {
-    type Writer = SharedBufferWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        SharedBufferWriter(self.0.clone())
-    }
+    assert!(matches!(
+        result,
+        Err(GcloudObservabilityError::InvalidParametersError(error))
+            if error.field == "google_project_id"
+    ));
 }
 
 #[test]
 fn severity_matches_level_for_each_tracing_level() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -78,11 +52,29 @@ fn severity_matches_level_for_each_tracing_level() {
 }
 
 #[test]
+fn events_of_the_transport_crates_are_written() {
+    let buffer = SharedBuffer::default();
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_json_writer(buffer.clone())
+        .build()
+        .unwrap();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::debug!(target: "h2::codec::framed_write", "send frame");
+    });
+
+    let lines = buffer.lines();
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0]["target"], "h2::codec::framed_write");
+}
+
+#[test]
 fn severity_field_overrides_level_case_insensitively() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -96,9 +88,10 @@ fn severity_field_overrides_level_case_insensitively() {
 #[test]
 fn severity_field_falls_back_to_level_when_unrecognised() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -112,9 +105,10 @@ fn severity_field_falls_back_to_level_when_unrecognised() {
 #[test]
 fn message_falls_back_to_event_name_when_no_message_field() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -132,9 +126,10 @@ fn message_falls_back_to_event_name_when_no_message_field() {
 #[test]
 fn http_request_fields_become_camel_cased_http_request_object() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -153,9 +148,10 @@ fn http_request_fields_become_camel_cased_http_request_object() {
 #[test]
 fn labels_fields_become_stringified_labels_object() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -173,9 +169,10 @@ fn labels_fields_become_stringified_labels_object() {
 #[test]
 fn operation_fields_populate_operation_object() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -199,9 +196,10 @@ fn operation_fields_populate_operation_object() {
 #[test]
 fn insert_id_field_populates_insert_id() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -215,9 +213,10 @@ fn insert_id_field_populates_insert_id() {
 #[test]
 fn arbitrary_and_dotted_field_names_are_kept_verbatim() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -232,9 +231,10 @@ fn arbitrary_and_dotted_field_names_are_kept_verbatim() {
 #[test]
 fn source_location_present_when_enabled() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -253,10 +253,11 @@ fn source_location_present_when_enabled() {
 #[test]
 fn source_location_absent_when_disabled() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_source_location(false)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -272,9 +273,10 @@ fn source_location_absent_when_disabled() {
 #[test]
 fn event_outside_any_span_carries_no_trace_fields() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -289,9 +291,10 @@ fn event_outside_any_span_carries_no_trace_fields() {
 #[test]
 fn event_in_span_without_otel_layer_carries_no_trace_fields() {
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
     let subscriber = Registry::default().with(layer);
 
     tracing::subscriber::with_default(subscriber, || {
@@ -315,9 +318,10 @@ fn log_line_correlates_with_the_exported_span() {
     let tracer = provider.tracer("logs-correlation-test");
 
     let buffer = SharedBuffer::default();
-    let log_layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let log_layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
 
     let subscriber = Registry::default()
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
@@ -345,7 +349,7 @@ fn log_line_correlates_with_the_exported_span() {
     assert_eq!(
         log_line["logging.googleapis.com/trace"],
         format!(
-            "projects/test-project/traces/{}",
+            "projects/{TEST_PROJECT}/traces/{}",
             exported.span_context.trace_id()
         )
     );
@@ -366,9 +370,10 @@ fn log_line_correlates_when_layer_is_wrapped_in_option() {
     let tracer = provider.tracer("logs-correlation-option-test");
 
     let buffer = SharedBuffer::default();
-    let log_layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let log_layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
 
     let subscriber = Registry::default()
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
@@ -396,7 +401,7 @@ fn log_line_correlates_when_layer_is_wrapped_in_option() {
     assert_eq!(
         log_line["logging.googleapis.com/trace"],
         format!(
-            "projects/test-project/traces/{}",
+            "projects/{TEST_PROJECT}/traces/{}",
             exported.span_context.trace_id()
         )
     );

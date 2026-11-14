@@ -7,6 +7,10 @@
 //! rather than dropped: a malformed `latency` or an unrecognised `httpRequest`
 //! member should cost the reader a typed field, never the value itself.
 
+use crate::logs::format::{
+    as_i64, duration_seconds, take, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
+    KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
+};
 use gcloud_sdk::google::logging::r#type::{HttpRequest, LogSeverity};
 use gcloud_sdk::google::logging::v2::{
     log_entry, LogEntry, LogEntryOperation, LogEntrySourceLocation,
@@ -16,17 +20,6 @@ use serde_json::{Map, Value};
 
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-
-const KEY_TIME: &str = "time";
-const KEY_SEVERITY: &str = "severity";
-const KEY_TRACE: &str = "logging.googleapis.com/trace";
-const KEY_SPAN_ID: &str = "logging.googleapis.com/spanId";
-const KEY_TRACE_SAMPLED: &str = "logging.googleapis.com/trace_sampled";
-const KEY_SOURCE_LOCATION: &str = "logging.googleapis.com/sourceLocation";
-const KEY_LABELS: &str = "logging.googleapis.com/labels";
-const KEY_INSERT_ID: &str = "logging.googleapis.com/insertId";
-const KEY_OPERATION: &str = "logging.googleapis.com/operation";
-const KEY_HTTP_REQUEST: &str = "httpRequest";
 
 /// Moves every key Cloud Logging gives a dedicated `LogEntry` field out of the
 /// record and leaves the rest as the entry's `json_payload`.
@@ -91,35 +84,9 @@ pub(crate) fn build_log_entry(mut record: Map<String, Value>) -> LogEntry {
     entry
 }
 
-/// Removes `key` and applies `map`, putting the value back untouched when it
-/// does not fit the proto field it was destined for, so a malformed value
-/// still reaches Cloud Logging inside the payload.
-fn take<F>(record: &mut Map<String, Value>, key: &str, map: F)
-where
-    F: FnOnce(Value) -> Option<()>,
-{
-    let Some(value) = record.remove(key) else {
-        return;
-    };
-    let restore = value.clone();
-    if map(value).is_none() {
-        record.insert(key.to_string(), restore);
-    }
-}
-
 fn as_string(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
-        _ => None,
-    }
-}
-
-/// Accepts both the JSON number and the decimal string proto3 uses for 64-bit
-/// integers, which exceed what a JSON number can hold exactly.
-fn as_i64(value: &Value) -> Option<i64> {
-    match value {
-        Value::Number(number) => number.as_i64(),
-        Value::String(raw) => raw.trim().parse().ok(),
         _ => None,
     }
 }
@@ -220,34 +187,8 @@ fn assign<T>(field: &mut T, parsed: Option<T>) -> bool {
     }
 }
 
-/// Google writes `HttpRequest.latency` as a Duration string; the suffixes are
-/// tried longest first so `ms` is not read as `s`.
 fn parse_duration(value: &Value) -> Option<prost_types::Duration> {
-    const UNITS: [(&str, f64); 7] = [
-        ("ns", 1e-9),
-        ("us", 1e-6),
-        ("\u{b5}s", 1e-6),
-        ("ms", 1e-3),
-        ("s", 1.0),
-        ("m", 60.0),
-        ("h", 3600.0),
-    ];
-
-    let seconds = match value {
-        Value::Number(number) => number.as_f64()?,
-        Value::String(raw) => {
-            let raw = raw.trim();
-            UNITS.iter().find_map(|(suffix, scale)| {
-                let number = raw.strip_suffix(suffix)?;
-                Some(number.trim().parse::<f64>().ok()? * scale)
-            })?
-        }
-        _ => return None,
-    };
-    if !seconds.is_finite() {
-        return None;
-    }
-
+    let seconds = duration_seconds(value)?;
     let total_nanos = (seconds * 1e9).round();
     let whole_seconds = (total_nanos / 1e9).trunc();
     Some(prost_types::Duration {

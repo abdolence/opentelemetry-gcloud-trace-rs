@@ -16,7 +16,8 @@ pub(crate) use batcher::{spawn, ApiSink, LogEntrySink};
 /// need not depend on `gcloud-sdk` directly.
 pub use gcloud_sdk::google::api::MonitoredResource;
 
-use crate::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
+use crate::ids::LogId;
 use gcloud_sdk::google::logging::v2::logging_service_v2_client::LoggingServiceV2Client;
 use gcloud_sdk::google::logging::v2::WriteLogEntriesRequest;
 use gcloud_sdk::{GoogleApi, GoogleAuthMiddleware};
@@ -30,7 +31,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 /// How the Cloud Logging API sink writes: which log to write to, what resource
 /// the entries are attributed to, and how aggressively they are batched.
 pub struct GcpCloudLoggingApiConfig {
-    pub(crate) log_id: String,
+    pub(crate) log_id: LogId,
     pub(crate) resource: Option<MonitoredResource>,
     pub(crate) batch_size: usize,
     pub(crate) flush_interval: Duration,
@@ -39,11 +40,11 @@ pub struct GcpCloudLoggingApiConfig {
 }
 
 impl GcpCloudLoggingApiConfig {
-    /// Writes to `projects/{project}/logs/{log_id}`. Cloud Logging limits a
-    /// log id to 512 characters of alphanumerics, `/`, `_`, `-` and `.`.
-    pub fn new(log_id: impl Into<String>) -> Self {
+    /// Writes to `projects/{project}/logs/{log_id}`, with `/` in `log_id` URL-encoded as
+    /// `%2F`, as Cloud Logging stores it.
+    pub fn new(log_id: LogId) -> Self {
         Self {
-            log_id: log_id.into(),
+            log_id,
             resource: None,
             batch_size: DEFAULT_BATCH_SIZE,
             flush_interval: DEFAULT_FLUSH_INTERVAL,
@@ -89,10 +90,19 @@ impl GcpCloudLoggingApiConfig {
         self
     }
 
-    pub(crate) fn resource_or_default(&self, project_id: &str) -> MonitoredResource {
+    /// The `logName` of every entry, in which `[LOG_ID]` must be URL-encoded. `/` is the only
+    /// character of a [`LogId`] that is not URL-safe.
+    pub(crate) fn log_name(&self, google_project_id: &str) -> String {
+        format!(
+            "projects/{google_project_id}/logs/{}",
+            self.log_id.to_string().replace('/', "%2F")
+        )
+    }
+
+    pub(crate) fn resource_or_default(&self, google_project_id: &str) -> MonitoredResource {
         self.resource.clone().unwrap_or_else(|| MonitoredResource {
             r#type: "global".to_string(),
-            labels: [("project_id".to_string(), project_id.to_string())]
+            labels: [("project_id".to_string(), google_project_id.to_string())]
                 .into_iter()
                 .collect(),
         })
@@ -104,7 +114,7 @@ pub(crate) struct GcloudLogEntrySink {
 }
 
 impl GcloudLogEntrySink {
-    pub(crate) async fn new() -> TraceExportResult<Self> {
+    pub(crate) async fn new() -> GcloudObservabilityResult<Self> {
         let client = GoogleApi::from_function(
             LoggingServiceV2Client::new,
             "https://logging.googleapis.com",
@@ -124,5 +134,20 @@ impl LogEntrySink for GcloudLogEntrySink {
             .await
             .map(|_| ())
             .map_err(|status| status.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slash_of_a_log_id_is_url_encoded_in_the_log_name() {
+        let config = GcpCloudLoggingApiConfig::new(LogId::from_static("orders/checkout-v1.2_a"));
+
+        assert_eq!(
+            config.log_name("orders-prod"),
+            "projects/orders-prod/logs/orders%2Fcheckout-v1.2_a"
+        );
     }
 }

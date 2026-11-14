@@ -59,6 +59,9 @@ impl ApiSink {
 ///
 /// Cloning shares one task and one queue. Dropping every clone without calling
 /// [`Self::shutdown`] leaves whatever is still queued unwritten.
+///
+/// [`Self::flush`] and [`Self::shutdown`] are async and block no thread, unlike shutting down an
+/// OpenTelemetry provider, so they work on a current-thread runtime.
 #[derive(Clone)]
 pub struct GcpCloudLoggingHandle {
     sender: mpsc::Sender<BatchMessage>,
@@ -251,7 +254,7 @@ impl Batcher {
         if let Err(message) = self.sink.write(request).await {
             if report_due(&mut self.last_failure_report, self.flush_interval) {
                 eprintln!(
-                    "opentelemetry-gcloud-trace: discarded a batch of {count} log entries: {message}"
+                    "gcloud-observability: discarded a batch of {count} log entries: {message}"
                 );
             }
         }
@@ -262,7 +265,7 @@ impl Batcher {
         let unreported = dropped.saturating_sub(self.reported_drops);
         if unreported > 0 && report_due(&mut self.last_drop_report, self.flush_interval) {
             eprintln!(
-                "opentelemetry-gcloud-trace: dropped {unreported} log entries, \
+                "gcloud-observability: dropped {unreported} log entries, \
                  the Cloud Logging queue is full"
             );
             self.reported_drops = dropped;
@@ -284,6 +287,7 @@ fn report_due(last: &mut Option<Instant>, interval: Duration) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ids::LogId;
     use gcloud_sdk::google::api::MonitoredResource;
     use serde_json::json;
     use std::sync::Mutex as StdMutex;
@@ -336,7 +340,7 @@ mod tests {
     }
 
     fn config() -> GcpCloudLoggingApiConfig {
-        GcpCloudLoggingApiConfig::new("test-log")
+        GcpCloudLoggingApiConfig::new(LogId::from_static("test-log"))
             .with_batch_size(3)
             .with_flush_interval(Duration::from_secs(2))
             .with_queue_capacity(64)

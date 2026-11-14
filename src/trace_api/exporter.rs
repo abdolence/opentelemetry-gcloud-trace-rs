@@ -1,5 +1,5 @@
-use crate::google_trace_exporter_client::GcpCloudTraceExporterClient;
-use crate::TraceExportResult;
+use super::client::GcpCloudTraceExporterClient;
+use crate::errors::GcloudObservabilityResult;
 use futures::future::TryFutureExt;
 use futures::FutureExt;
 use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
@@ -16,10 +16,10 @@ pub struct GcpCloudTraceExporter {
 
 impl GcpCloudTraceExporter {
     pub async fn new(
-        google_project_id: &str,
+        google_project_id: String,
         resource: Resource,
         export_span_events: bool,
-    ) -> TraceExportResult<Self> {
+    ) -> GcloudObservabilityResult<Self> {
         Ok(Self {
             gcp_export_client: Arc::new(
                 GcpCloudTraceExporterClient::new(google_project_id, resource, export_span_events)

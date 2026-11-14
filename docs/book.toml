@@ -1,0 +1,21 @@
+[book]
+authors = ["Abdulla Abdurakhmanov"]
+language = "en"
+src = "src"
+title = "Google Cloud observability for Rust"
+description = "Cloud Logging, Cloud Trace and Error Reporting for Rust services that use tracing and OpenTelemetry, with OTLP to the Google Cloud Telemetry API"
+
+[rust]
+edition = "2021"
+
+[build]
+build-dir = "output"
+create-missing = false
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/abdolence/gcloud-observability-rs"
+cname = "gcloud-observability-rust.abdolence.dev"
+
+[output.html.playground]
+runnable = false

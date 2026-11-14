@@ -1,8 +1,9 @@
-//! A multi-level span hierarchy with a log line at every level, so that the
-//! Google Cloud console shows trace/log correlation end to end: open the
-//! trace in Trace Explorer and its "Logs" panel lists each of these events
-//! under the span that emitted it, or open one of the log entries in Logs
-//! Explorer and follow its trace link back to the waterfall below.
+//! Spans exported through the Cloud Trace API, and log entries with the trace and span they were
+//! logged in, so that the Google Cloud console shows trace/log correlation end to end. The
+//! workload is a multi-level span hierarchy with a log line at every level: open the trace in
+//! Trace Explorer and its "Logs" panel lists each of these events under the span that emitted
+//! it, or open one of the log entries in Logs Explorer and follow its trace link back to the
+//! waterfall.
 //!
 //! `APP_MODE` (default `development`) picks the log sink. `development`
 //! prints human-readable lines to the console and, as a demo convenience,
@@ -16,27 +17,24 @@
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
+//! PROJECT_ID=your-project cargo run --example traces-and-logs-cloud-trace-api --features trace-api,logs-api
 //! ```
 //!
 //! or, for the JSON-only variant:
 //!
 //! ```sh
-//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs-api
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs-cloud-trace-api --features trace-api,logs-api
 //! ```
 
+use gcloud_observability::ids::LogId;
+use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
+use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use opentelemetry::trace::TraceContextExt;
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
 use std::time::Duration;
 use tracing::*;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
-
-pub fn config_env_var(name: &str) -> Result<String, String> {
-    std::env::var(name).map_err(|e| format!("{}: {}", name, e))
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AppMode {
@@ -123,21 +121,19 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id = std::env::var("PROJECT_ID")?;
     let mode = AppMode::from_env();
 
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
-        opentelemetry_sdk::Resource::builder()
-            .with_attributes(vec![opentelemetry::KeyValue::new(
-                "service.name",
-                "traces-and-logs-example",
-            )])
-            .build(),
-    );
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_service_name("traces-and-logs-cloud-trace-api-example")
+                .build(),
+        );
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
-    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
+    let tracer = gcp_trace_exporter.install(&tracer_provider);
 
+    // ANCHOR: layers
     // `Option<Layer>` implements `Layer`, so every sink can be built from one
     // `match` and composed unconditionally below - an inactive sink is a
     // `None` that costs nothing on the subscriber. Development mode writes
@@ -148,12 +144,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // none does - never both.
     let (console_layer, api_layer, api_handle, json_layer) = match mode {
         AppMode::Development => {
-            let (api_layer, api_handle) = GcpCloudLoggingLayerBuilder::new(project_id.clone())
-                .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
-                    "opentelemetry-gcloud-trace-example",
-                ))
-                .build_async()
-                .await?;
+            let (api_layer, api_handle) =
+                GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
+                    .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::new(
+                        "gcloud-observability-example",
+                    )?))
+                    .build_async()
+                    .await?;
             (
                 Some(tracing_subscriber::fmt::layer()),
                 Some(api_layer),
@@ -165,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             None,
             None,
             None,
-            Some(GcpCloudLoggingLayerBuilder::new(project_id.clone()).build()),
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()?),
         ),
     };
 
@@ -183,6 +180,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // below carries a span across a `tokio::spawn` boundary onto a different
     // thread.
     tracing::subscriber::set_global_default(subscriber)?;
+    // ANCHOR_END: layers
 
     let root = info_span!("handle_request", order_id = "order-42", tenant = "acme");
     let trace_id = {
@@ -215,10 +213,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!(
         trace_id = %trace_id,
         trace_explorer = %format!(
-            "https://console.cloud.google.com/traces/list?project={project_id}&tid={trace_id}"
+            "https://console.cloud.google.com/traces/list?project={google_project_id}&tid={trace_id}"
         ),
         logs_explorer = %format!(
-            "https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{project_id}%2Ftraces%2F{trace_id}%22?project={project_id}"
+            "https://console.cloud.google.com/logs/query;query=trace%3A%22{trace_id}%22?project={google_project_id}"
         ),
         "request handled; open the trace in the console"
     );

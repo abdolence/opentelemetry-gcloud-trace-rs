@@ -1,365 +1,143 @@
-[![Cargo](https://img.shields.io/crates/v/opentelemetry-gcloud-trace.svg)](https://crates.io/crates/opentelemetry-gcloud-trace)
-![tests and formatting](https://github.com/abdolence/opentelemetry-gcloud-trace-rs/workflows/tests%20&amp;%20formatting/badge.svg)
-![security audit](https://github.com/abdolence/opentelemetry-gcloud-trace-rs/workflows/security%20audit/badge.svg)
+[![Cargo](https://img.shields.io/crates/v/gcloud-observability.svg)](https://crates.io/crates/gcloud-observability)
+![tests and formatting](https://github.com/abdolence/gcloud-observability-rs/workflows/tests%20&amp;%20formatting/badge.svg)
+![security audit](https://github.com/abdolence/gcloud-observability-rs/workflows/security%20audit/badge.svg)
 
-# Google Cloud Trace and Cloud Logging for OpenTelemetry and tracing
+# Google Cloud observability for Rust
 
-The crate covers two uses, separately or together:
-- an OpenTelemetry span exporter for Google Cloud Trace;
-- a `tracing-subscriber` layer for the `tracing` crate that writes structured Google Cloud Logging entries, correlated with the trace and span that emitted them, so the Google Cloud console shows each log line under its trace.
+Formerly `opentelemetry-gcloud-trace`, see the [migration guide](MIGRATION.md).
 
-Features:
-- the trace exporter is always available and needs no feature;
-- `logs` (default): the logging layer, writing JSON lines to stdout for GKE, Cloud Run or a host with the Cloud Logging agent;
-- `logs-api`: the logging layer writes through the Cloud Logging API, for a host with no logging agent.
+The library sends what a Rust service emits through `tracing` and OpenTelemetry to Google Cloud:
+
+- Cloud Logging: a `tracing-subscriber` layer that writes structured log entries, each correlated with the trace and span that emitted it, so the console shows every log line under its trace;
+- Cloud Trace: OpenTelemetry span exporters for the Telemetry API, which takes OTLP (the OpenTelemetry wire protocol), and for the Cloud Trace API v2;
+- Error Reporting: errors logged with the code location, the `source()` chain and a backtrace, and panics, in the format Error Reporting groups;
+- Authentication of any OTLP exporter, metrics included, with Google Application Default Credentials (ADC), refreshed in the background;
+- Three log sinks: JSON lines on stdout for GKE, Cloud Run and hosts with the logging agent, the Cloud Logging API, and OTLP.
+
+## Documentation
+
+Please follow to the official website: <https://gcloud-observability-rust.abdolence.dev/>.
+
+## Features
+
+| Feature               | Goal                                                                                       |
+|-----------------------|--------------------------------------------------------------------------------------------|
+| `logs` (default)      | The logging layer with the JSON lines sink, and Error Reporting for every sink             |
+| `logs-api`            | The logging layer writes through the Cloud Logging API, for hosts with no logging agent    |
+| `logs-otlp`           | The logging layer sends entries over OTLP to the Telemetry API; includes `logs` and `otlp` |
+| `otlp`                | Span exporter and authentication for the Telemetry API (`telemetry.googleapis.com`)        |
+| `trace-api`           | Span exporter for the Cloud Trace API v2 (`cloudtrace.googleapis.com`)                     |
+| `tls-roots` (default) | Native TLS root certificates                                                               |
+| `tls-webpki-roots`    | TLS root certificates of the `webpki-roots` crate                                          |
+| `auth-default-crypto` | The rustls crypto provider that service account keys are signed with (default)             |
+
+No exporter is enabled by default.
 
 ## Quick start
 
 Cargo.toml:
+
 ```toml
 [dependencies]
-opentelemetry-gcloud-trace = "0.29"
+gcloud-observability = { version = "0.31", features = ["otlp"] }
+opentelemetry_sdk = "0.33"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.34"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 Minimum supported Rust version is 1.91.
 
-### Crypto provider
+```rust,ignore
+use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
+use gcloud_observability::otlp::GcpOtlpExporterBuilder;
+use tracing::{info, info_span};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{EnvFilter, Registry};
 
-The default `auth-default-crypto` feature brings the aws-lc-rs rustls provider that `google-cloud-auth` needs to sign service account keys.
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let google_project_id = std::env::var("PROJECT_ID")?;
 
-With `default-features = false` and without `auth-default-crypto`, install a rustls `CryptoProvider` before creating the exporter or the logging layer, otherwise it fails with `CryptoProviderMissing` when the credentials are a service account key:
+    let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
+        opentelemetry_sdk::Resource::builder()
+            .with_service_name("quickstart-example")
+            .build(),
+    );
+    let tracer_provider = otlp.create_provider().await?;
+    let tracer = otlp.install(&tracer_provider);
 
-```toml
-[dependencies]
-rustls = "0.23"
+    let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build()?;
+
+    // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
+    // context the OpenTelemetry layer attaches, and sees only what is registered ahead of it.
+    let subscriber = Registry::default()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(log_layer);
+    tracing::subscriber::set_global_default(subscriber)?;
+
+    info_span!("handle_request", order_id = "order-42").in_scope(|| {
+        info!("labels.tenant" = "acme", "Serving a request.");
+    });
+
+    // Flushes the spans still queued; blocks, so it needs the multi-threaded runtime.
+    tracer_provider.shutdown()?;
+
+    Ok(())
+}
 ```
 
-```rust
-rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
-```
+The spans are exported with the credentials ADC finds, which need the `roles/telemetry.writer` role on the project.
+The logging layer writes JSON lines to stdout, which the Cloud Logging agent of GKE, Cloud Run and GCE collects.
+See [Authentication](https://gcloud-observability-rust.abdolence.dev/authentication.html).
 
-If you see the error like:
+Full example available [here](examples/quickstart.rs).
 
-```
-no process-level CryptoProvider available -- call CryptoProvider::install_default() before this point
-```
+More examples, by goal, are in the [examples](examples) directory:
 
-you have more than one rustls provider in your dependencies, and you need to call `CryptoProvider::install_default()` as above before creating the exporter.
+| Goal                        | Examples                                                            |
+|-----------------------------|---------------------------------------------------------------------|
+| Logging                     | `logging-dev-and-prod`, `logging-cloud-logging-api`, `logging-otlp` |
+| Errors and panics           | `errors-error-reporting`, `errors-panic-hook`                       |
+| Traces                      | `traces-otlp`, `traces-cloud-trace-api`                             |
+| Traces with correlated logs | `traces-and-logs-otlp`, `traces-and-logs-cloud-trace-api`           |
+| Metrics                     | `metrics-otlp`                                                      |
+
+Each runs as `PROJECT_ID=<your-google-project-id> cargo run --example <name> --features <features>`.
+The features it needs are in its header and in `required-features` in `Cargo.toml`.
 
 ## Compatibility matrix
 
-| opentelemetry-gcloud-trace version | opentelemetry version | tracing-opentelemetry | gcloud-sdk |
-|------------------------------------|-----------------------|-----------------------|------------|
-| 0.29                               | 0.33                  | 0.34                  | 0.33       |
-| 0.28                               | 0.33                  | 0.34                  | 0.32       |
-| 0.27                               | 0.32                  | 0.33                  | 0.32       |
-| 0.26                               | 0.32                  | 0.33                  | 0.32       |
-| 0.25                               | 0.32                  | 0.33                  | 0.31       |
-| 0.24                               | 0.32                  | 0.33                  | 0.30       |
-| 0.23                               | 0.31                  | 0.32                  | 0.29       |
-
-
-
-## Example: traces and correlated logs
-
-This example runs a request handler with nested spans, one of them on a spawned task, and a log line at every level, so the Google Cloud console shows each log nested under the span that emitted it. The setup below, condensed from its `main` function and one instrumented function, is what makes that correlation work; the full runnable version, with the complete span tree and error handling, is `examples/traces-and-logs.rs`.
-
-```rust
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
-use tracing::*;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Registry};
-
-#[instrument(skip_all, fields(order_id = %order_id))]
-async fn send_notification(order_id: &str) -> Result<(), String> {
-    info!(order_id, "sending checkout notification");
-    let err = format!("no notification channel configured for order {order_id}");
-    error!(error = %err, "failed to notify customer of checkout");
-    Err(err)
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = "my-gcp-project-id".to_string();
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
-        opentelemetry_sdk::Resource::builder()
-            .with_attributes(vec![opentelemetry::KeyValue::new("service.name", "my-service")])
-            .build(),
-    );
-    let tracer_provider = gcp_trace_exporter.create_provider().await?;
-    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
-
-    // Console locally, JSON where an agent collects stdout; both may be built
-    // as `Option<Layer>`, see "One application, two modes" below.
-    let console_layer = tracing_subscriber::fmt::layer();
-    let json_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
-
-    // The OpenTelemetry layer must come first: the log layer reads the span
-    // context that layer attaches, and only sees what is registered ahead of it.
-    let subscriber = Registry::default()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(console_layer)
-        .with(json_layer);
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    let _ = send_notification("order-42").await;
-
-    tracer_provider.shutdown()?;
-    Ok(())
-}
-```
-
-The full example's default development mode additionally sends the same entries through the Cloud Logging API (feature `logs-api`), so the correlation is visible from a laptop; that double sink is a demo convenience, not a production pattern.
-
-Run it with:
-```sh
-PROJECT_ID=<your-google-project-id> cargo run --example traces-and-logs --features logs-api
-```
-The last console line prints the trace id together with direct Trace Explorer and Logs Explorer links.
-
-![Trace with correlated logs in the Google Cloud console](docs/img/gcloud-traces-and-logs.png)
-
-All examples are available at [examples](examples) directory. A trace-only setup, without any logging layer, is in `examples/enable-exporter.rs` and `examples/tracing-exporter.rs`.
-
-```toml
-[dependencies]
-opentelemetry = { version = "*", features = [] }
-opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
-opentelemetry-gcloud-trace = "*"
-tracing = "*"
-tracing-subscriber = { version = "*", features = ["env-filter"] }
-tracing-opentelemetry = "*"
-```
-
-`opentelemetry-gcloud-trace`'s `logs` feature, used by `GcpCloudLoggingLayerBuilder` above, is on by default; `logs-api` is opt-in and only needed for the Cloud Logging API sink described above.
-
-## Configuration
-
-You can specify trace configuration using `with_tracer_provider_builder`:
-
-```rust
-   let exporter = GcpCloudTraceExporterBuilder::new(google_project_id);
-   let provider = exporter.create_provider_from_builder ( TracerProvider::builder()
-         .with_sampler(Sampler::AlwaysOn)
-         .with_id_generator(RandomIdGenerator::default())
-   ));
-```
-
-Spans are exported in batches. `with_max_export_timeout` bounds how long a batch export may take before
-the batch is dropped (30 seconds by default). A shutdown exports every batch queued ahead of it one after
-the other, and each may take the full timeout, so shutdown can take the timeout once per 512 queued spans,
-rounded up. On a platform that kills the process shortly after SIGTERM, such as Cloud Run, keep that total
-below the time the platform allows:
-
-```rust
-   let exporter = GcpCloudTraceExporterBuilder::new(google_project_id)
-         .with_max_export_timeout(Duration::from_secs(3));
-```
-
-## Limitations
-- This exporter doesn't support any other runtimes except Tokio.
-
-## Integration with logs
-
-Cloud Trace and Cloud Logging are separate products, and this crate now
-provides a `tracing_subscriber` layer for the latter alongside the trace
-exporter. Earlier versions pointed users at a separate third-party crate for
-JSON logs correlated to a trace; that crate read `tracing-opentelemetry`'s
-private span extension to find `trace_id`/`span_id`, broke silently whenever
-that extension's shape changed, and — combined with this exporter — reported
-every event twice, once as a Cloud Trace annotation (`tracing-opentelemetry`
-turns each event into a span event) and once as a log line.
-`GcpCloudLoggingLayer` correlates through `tracing-opentelemetry`'s public
-context API instead, and span events are no longer exported as Cloud Trace
-annotations by default (see below), so a log line is the only place a message
-is written. See "Migrating from `tracing-stackdriver`" below if you already
-use that crate.
-
-A layer uses exactly one sink, chosen when it is built.
-
-### JSON lines (default, feature `logs`)
-
-For GKE, Cloud Run, or a GCE instance with the Cloud Logging agent installed:
-the agent already parses structured JSON written to stdout, so the layer only
-needs to serialise each event.
-
-```rust
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Registry};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = "my-gcp-project-id".to_string();
-
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone());
-    let tracer_provider = gcp_trace_exporter.create_provider().await?;
-    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
-
-    let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
-
-    // The OpenTelemetry layer must come first: the log layer reads the span
-    // context that layer attaches, and only sees what is registered ahead of it.
-    let subscriber = Registry::default()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(log_layer);
-
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    tracing::info!("service started");
-
-    tracer_provider.shutdown()?;
-    Ok(())
-}
-```
-
-### One application, two modes
-
-A service usually wants the console layer locally and the JSON layer once
-deployed, chosen by one `match` rather than duplicated `main` functions.
-`Option<Layer>` implements `Layer`, so exactly one sink is active per mode
-without a boxed trait object or two separate subscriber types:
-
-```rust
-enum AppMode {
-    Development,
-    Production,
-}
-
-let (console_layer, json_layer) = match mode {
-    AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
-    AppMode::Production => (
-        None,
-        Some(GcpCloudLoggingLayerBuilder::new(project_id).build()),
-    ),
-};
-
-let subscriber = Registry::default()
-    .with(tracing_opentelemetry::layer().with_tracer(tracer))
-    .with(console_layer)
-    .with(json_layer);
-```
-
-See `examples/logging.rs` for the full runnable version, including the
-`APP_MODE` environment switch. Trace correlation keeps working with the JSON
-layer wrapped in `Option` this way, with no extra step needed.
-
-The main example above, `examples/traces-and-logs.rs`, is the full runnable version of this same two-mode setup, with a multi-level span tree and a correlated log line at every level.
-
-### Cloud Logging API (feature `logs-api`)
-
-For a host with no logging agent, `GcpCloudLoggingApiConfig` batches entries
-and writes them through the Cloud Logging API directly.
-
-```rust
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::Registry;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = "my-gcp-project-id".to_string();
-
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone());
-    let tracer_provider = gcp_trace_exporter.create_provider().await?;
-    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
-    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
-
-    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id)
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new("my-service"))
-        .build_async()
-        .await?;
-
-    let subscriber = Registry::default()
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(log_layer);
-
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    tracing::info!("service started");
-
-    // Close the queue and wait for a final flush (bounded by
-    // `with_shutdown_timeout`) before the tracer provider shuts down, so the
-    // last log lines are not dropped mid-write.
-    log_handle.shutdown().await;
-    tracer_provider.shutdown()?;
-    Ok(())
-}
-```
-
-`GcpCloudLoggingApiConfig` also takes `with_resource`, `with_batch_size`,
-`with_flush_interval` and `with_queue_capacity`; see its docs for defaults.
-
-### Layer ordering
-
-Register `tracing_opentelemetry::layer()` before `GcpCloudLoggingLayer` on the
-subscriber, as in both examples above. A `tracing_subscriber::Layer` only sees
-span context attached by layers registered ahead of it, so registering the log
-layer first — or omitting the OpenTelemetry layer entirely — silently disables
-`trace`/`spanId`/`traceSampled` on every log line. The layer prints one warning
-to stderr the first time this happens.
-
-### Field conventions
-
-Event fields map onto Cloud Logging's structured `LogEntry` fields as follows;
-anything else is written verbatim into the JSON payload.
-
-| Event field(s) | Log entry field | Format |
-|---|---|---|
-| `severity` | `severity` | One of `DEFAULT DEBUG INFO NOTICE WARNING ERROR CRITICAL ALERT EMERGENCY`, matched case-insensitively; overrides the level-based mapping (`TRACE`/`DEBUG` → `DEBUG`, `INFO` → `INFO`, `WARN` → `WARNING`, `ERROR` → `ERROR`) used when it is absent or unrecognised |
-| `http_request.request_method`, `.request_url`, `.user_agent`, `.remote_ip`, `.server_ip`, `.referer`, `.protocol` | `httpRequest.*` (camelCased) | strings |
-| `http_request.status` | `httpRequest.status` | integer |
-| `http_request.request_size`, `.response_size`, `.cache_fill_bytes` | `httpRequest.*` | integers |
-| `http_request.latency` | `httpRequest.latency` | a duration string, e.g. `"250ms"`, `"1.5s"` |
-| `http_request.cache_lookup`, `.cache_hit`, `.cache_validated_with_origin_server` | `httpRequest.*` | booleans |
-| `labels.<name>` | `logging.googleapis.com/labels.<name>` | value stringified |
-| `operation.id`, `.producer` | `logging.googleapis.com/operation.{id,producer}` | strings |
-| `operation.first`, `.last` | `logging.googleapis.com/operation.{first,last}` | booleans |
-| `insert_id` | `logging.googleapis.com/insertId` | string |
-| source location | `logging.googleapis.com/sourceLocation` | file and line; on by default, disable with `.with_source_location(false)` |
-
-### Span events and Cloud Trace annotations
-
-Since 0.27, span events are no longer exported as Cloud Trace `time_events`
-annotations by default: a logging layer now records the same events, so the
-exporter no longer reports them a second time on the trace. Pass
-`GcpCloudTraceExporterBuilder::new(project_id).with_span_events(true)` before
-`create_provider()` to restore the previous behaviour; span status is
-unaffected either way.
-
-### Migrating from `tracing-stackdriver`
-
-Swap the `tracing-stackdriver` layer for `GcpCloudLoggingLayer` at the same
-position in the subscriber stack:
-
-```diff
-- .with(tracing_stackdriver::layer().with_cloud_trace(
--     tracing_stackdriver::CloudTraceConfiguration { project_id },
-- ))
-+ .with(opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder::new(project_id).build())
-```
-
-Two things change in the emitted log lines: there is no `span`/`spans` object
-carrying the enclosing span's name and fields (span attributes now live only
-on the trace, not duplicated into every log line), and event field names are
-written verbatim rather than camel-cased — only the `httpRequest.*` keys
-listed above are camel-cased, matching Google's own field names.
-
-## TLS related features
-Cargo provides support for different TLS features for dependencies:
-- `tls-roots`: default feature to support native TLS roots;
-- `tls-webpki-roots`: feature to switch to webpki crate roots;
-- `auth-default-crypto`: default feature with the rustls crypto provider for `google-cloud-auth`, see [Crypto provider](#crypto-provider).
+<!-- ANCHOR: compatibility -->
+| gcloud-observability version | opentelemetry version | opentelemetry-otlp | tracing-opentelemetry | gcloud-sdk |
+|------------------------------|-----------------------|--------------------|-----------------------|------------|
+| 0.31                         | 0.33                  | 0.33               | 0.34                  | 0.33       |
+| 0.30                         | 0.33                  | -                  | 0.34                  | 0.33       |
+| 0.29                         | 0.33                  | -                  | 0.34                  | 0.33       |
+| 0.28                         | 0.33                  | -                  | 0.34                  | 0.32       |
+| 0.27                         | 0.32                  | -                  | 0.33                  | 0.32       |
+| 0.26                         | 0.32                  | -                  | 0.33                  | 0.32       |
+| 0.25                         | 0.32                  | -                  | 0.33                  | 0.31       |
+| 0.24                         | 0.32                  | -                  | 0.33                  | 0.30       |
+| 0.23                         | 0.31                  | -                  | 0.32                  | 0.29       |
+
+Versions up to 0.30 are published as `opentelemetry-gcloud-trace`.
+<!-- ANCHOR_END: compatibility -->
+
+## Migrating
+
+0.31 renames the crate and moves the Cloud Trace API exporter behind the `trace-api` feature.
+See the [migration guide](MIGRATION.md) and
+[Migrating from 0.30](https://gcloud-observability-rust.abdolence.dev/migrating-from-0.30.html).
+
+From `tracing-stackdriver`: [Migrating from tracing-stackdriver](https://gcloud-observability-rust.abdolence.dev/migrating-from-tracing-stackdriver.html).
 
 ## Licence
+
 Apache Software License (ASL)
 
 ## Author
+
 Abdulla Abdurakhmanov

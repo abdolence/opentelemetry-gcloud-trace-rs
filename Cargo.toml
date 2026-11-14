@@ -1,15 +1,14 @@
 [package]
-name = "opentelemetry-gcloud-trace"
+name = "gcloud-observability"
 version = "0.30.0"
 authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
 edition = "2021"
 rust-version = "1.91"
 license = "Apache-2.0"
-description = "Google Cloud Trace exporter for OpenTelemetry and a Google Cloud Logging layer for the tracing crate, with log entries correlated to traces"
-homepage = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
-repository = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
-documentation = "https://docs.rs/opentelemetry-gcloud-trace"
-keywords = ["tracing", "opentelemetry", "google-cloud", "cloud-logging", "cloud-trace"]
+description = "Google Cloud observability for Rust: OpenTelemetry exporters for Cloud Trace through the Cloud Trace API or OTLP, and a tracing layer for Cloud Logging and Error Reporting with entries correlated to traces"
+repository = "https://github.com/abdolence/gcloud-observability-rs"
+documentation = "https://docs.rs/gcloud-observability"
+keywords = ["cloud-logging", "cloud-trace", "error-reporting", "otlp", "tracing"]
 categories = ["api-bindings", "development-tools::debugging"]
 readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE", "SECURITY.md"]
@@ -17,39 +16,45 @@ include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE", "SECURITY.md"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
-name = "opentelemetry_gcloud_trace"
+name = "gcloud_observability"
 path = "src/lib.rs"
 
 [dependencies]
 tracing = "0.1"
 opentelemetry = { version = "0.33" }
 opentelemetry_sdk = { version = "0.33", features = ["rt-tokio", "experimental_trace_batch_span_processor_with_async_runtime"] }
-opentelemetry-semantic-conventions = { version = "0.33" }
-gcloud-sdk = { version = "0.33", features = ["google-devtools-cloudtrace-v2"], default-features = false }
-rvstruct = "0.3"
+gcloud-sdk = { version = "0.33", default-features = false }
 rsb_derive = "0.5"
-tokio-stream = "0.1"
-futures = "0.3"
-async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+futures = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = ["fmt"], optional = true }
 tracing-opentelemetry = { version = "0.34", optional = true }
 serde_json = { version = "1", optional = true }
 time = { version = "0.3", features = ["formatting", "parsing"], optional = true }
-tokio = { version = "1", features = ["sync", "rt", "time"], optional = true }
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"], optional = true }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["grpc-tonic", "trace", "tls-provider-agnostic"], optional = true }
 
 [features]
 default = ["tls-roots", "logs", "auth-default-crypto"]
-tls-roots = ["gcloud-sdk/tls-roots"]
-tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots"]
+tls-roots = ["gcloud-sdk/tls-roots", "opentelemetry-otlp?/tls-roots"]
+tls-webpki-roots = ["gcloud-sdk/tls-webpki-roots", "opentelemetry-otlp?/tls-webpki-roots"]
 # The rustls crypto provider google-cloud-auth signs service account keys with.
 # Without it, or another provider installed by the application, building the
-# exporter fails with `ErrorKind::CryptoProviderMissing`.
-auth-default-crypto = ["gcloud-sdk/auth-default-crypto"]
+# exporter fails with `ErrorKind::CryptoProviderMissing`. The OTLP exporter's
+# TLS uses the same provider, aws-lc-rs, so only one is compiled in.
+auth-default-crypto = ["gcloud-sdk/auth-default-crypto", "opentelemetry-otlp?/tls-aws-lc"]
 logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json", "dep:time"]
 # `gcloud-sdk/google-logging-v2` already pulls in `google.logging.type` and
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
-logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
+logs-api = ["logs", "dep:tokio", "dep:async-trait", "gcloud-sdk/google-logging-v2"]
+trace-api = ["dep:futures", "gcloud-sdk/google-devtools-cloudtrace-v2"]
+otlp = ["dep:opentelemetry-otlp", "dep:tokio"]
+logs-otlp = ["logs", "otlp", "opentelemetry-otlp/logs"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
@@ -60,15 +65,62 @@ tracing-subscriber = { version = "0.3", features = ["env-filter","registry"] }
 tracing-opentelemetry = { version = "0.34" }
 cargo-husky = { version = "1.5", default-features = false, features = ["run-for-all", "prepush-hook", "run-cargo-fmt"] }
 rustls = "0.23"
+serde_json = "1"
+# The metrics example builds an `opentelemetry-otlp` `MetricExporter` itself; the library
+# has no metrics API.
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["metrics"] }
 
 [[example]]
-name = "logging-only-api"
+name = "quickstart"
+path = "examples/quickstart.rs"
+required-features = ["logs", "otlp"]
+
+[[example]]
+name = "logging-dev-and-prod"
+path = "examples/logging/dev_and_prod.rs"
+required-features = ["logs", "otlp"]
+
+[[example]]
+name = "logging-cloud-logging-api"
+path = "examples/logging/cloud_logging_api.rs"
+required-features = ["logs-api", "otlp"]
+
+[[example]]
+name = "logging-otlp"
+path = "examples/logging/otlp.rs"
+required-features = ["logs-otlp"]
+
+[[example]]
+name = "errors-error-reporting"
+path = "examples/errors/error_reporting.rs"
 required-features = ["logs-api"]
 
 [[example]]
-name = "logging"
-required-features = ["logs"]
+name = "errors-panic-hook"
+path = "examples/errors/panic_hook.rs"
+required-features = ["logs-api"]
 
 [[example]]
-name = "traces-and-logs"
-required-features = ["logs-api"]
+name = "traces-otlp"
+path = "examples/traces/otlp.rs"
+required-features = ["otlp"]
+
+[[example]]
+name = "traces-cloud-trace-api"
+path = "examples/traces/cloud_trace_api.rs"
+required-features = ["trace-api"]
+
+[[example]]
+name = "traces-and-logs-otlp"
+path = "examples/traces_and_logs/otlp.rs"
+required-features = ["logs-otlp"]
+
+[[example]]
+name = "traces-and-logs-cloud-trace-api"
+path = "examples/traces_and_logs/cloud_trace_api.rs"
+required-features = ["trace-api", "logs-api"]
+
+[[example]]
+name = "metrics-otlp"
+path = "examples/metrics/otlp.rs"
+required-features = ["otlp"]
