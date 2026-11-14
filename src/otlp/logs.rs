@@ -4,6 +4,7 @@ use opentelemetry_otlp::LogExporter;
 use opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor;
 use opentelemetry_sdk::logs::{BatchConfigBuilder, LoggerProviderBuilder, SdkLoggerProvider};
 use opentelemetry_sdk::runtime;
+use opentelemetry_sdk::Resource;
 
 impl GcpOtlpExporterBuilder {
     pub async fn log_exporter(&self) -> TraceExportResult<LogExporter> {
@@ -14,11 +15,13 @@ impl GcpOtlpExporterBuilder {
     }
 
     pub async fn create_logger_provider(&self) -> TraceExportResult<SdkLoggerProvider> {
-        self.create_logger_provider_from_builder(SdkLoggerProvider::builder())
-            .await
+        self.create_logger_provider_from_builder(
+            SdkLoggerProvider::builder().with_resource(Resource::builder().build()),
+        )
+        .await
     }
 
-    /// Adds the resource of [`Self::resource`] and a batch processor over
+    /// Adds [`Self::resource`], `gcp.project_id` and a batch processor over
     /// [`Self::log_exporter`] to `builder`. The processor runs on Tokio, which the tonic
     /// exporter needs, rather than on a thread of its own.
     pub async fn create_logger_provider_from_builder(
@@ -32,10 +35,9 @@ impl GcpOtlpExporterBuilder {
         let processor = BatchLogProcessor::builder(self.log_exporter().await?, runtime::Tokio)
             .with_batch_config(config.build())
             .build();
-        let [resource, project] = self.provider_resources();
-        Ok(builder
-            .with_resource(resource)
-            .with_resource(project)
+        Ok(self
+            .provider_resources()
+            .fold(builder, LoggerProviderBuilder::with_resource)
             .with_log_processor(processor)
             .build())
     }

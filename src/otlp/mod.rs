@@ -33,9 +33,10 @@ pub struct GcpOtlpExporterBuilder {
     /// Set as `gcp.project_id` on the resource of every provider built here, over any
     /// value the resource already has.
     pub google_project_id: String,
-    /// The resource of every provider built here, with `gcp.project_id` merged over it.
-    /// Defaults to the OpenTelemetry SDK's default resource. A resource already set on a
-    /// provider builder passed in is merged under this one, key by key.
+    /// Merged key by key over the resource of the provider builder, and under
+    /// `gcp.project_id`. While unset, the provider builder's resource stands;
+    /// `create_provider` and `create_logger_provider` start from the OpenTelemetry SDK's
+    /// default resource.
     pub resource: Option<Resource>,
     /// Defaults to `https://telemetry.googleapis.com`. Regional endpoints are
     /// `https://telemetry.REGION.rep.googleapis.com`. TLS is verified against the host
@@ -102,18 +103,14 @@ impl GcpOtlpExporterBuilder {
 
     // In the order they are merged into a provider, so that `gcp.project_id` always names
     // `google_project_id`.
-    fn provider_resources(&self) -> [Resource; 2] {
-        [
-            self.resource
-                .clone()
-                .unwrap_or_else(|| Resource::builder().build()),
-            Resource::builder_empty()
-                .with_attribute(KeyValue::new(
-                    "gcp.project_id",
-                    self.google_project_id.clone(),
-                ))
-                .build(),
-        ]
+    fn provider_resources(&self) -> impl Iterator<Item = Resource> {
+        let project = Resource::builder_empty()
+            .with_attribute(KeyValue::new(
+                "gcp.project_id",
+                self.google_project_id.clone(),
+            ))
+            .build();
+        self.resource.clone().into_iter().chain([project])
     }
 }
 
