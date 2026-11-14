@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::SharedBuffer;
+use common::{SharedBuffer, TEST_PROJECT};
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_sdk::trace::{
@@ -24,7 +24,7 @@ fn log_line_correlates_under_global_default_dispatch() {
     let tracer = provider.tracer("logs-global-dispatch-test");
 
     let buffer = SharedBuffer::default();
-    let log_layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let log_layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
         .build();
 
@@ -62,7 +62,7 @@ fn log_line_correlates_under_global_default_dispatch() {
     assert_eq!(
         log_line["logging.googleapis.com/trace"],
         format!(
-            "projects/test-project/traces/{}",
+            "projects/{TEST_PROJECT}/traces/{}",
             exported.span_context.trace_id()
         )
     );

@@ -11,6 +11,7 @@
 //! RUST_BACKTRACE=1 PROJECT_ID=your-project cargo run --example errors-error-reporting --features logs-api
 //! ```
 
+use gcloud_observability::ids::{GoogleProjectId, LogId};
 use gcloud_observability::logs::{
     GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder, ServiceContext,
 };
@@ -67,12 +68,12 @@ fn reserve_stock(sku: &str) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
 
-    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id)
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
+    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
             "gcloud-observability-example",
-        ))
+        )))
         .with_error_reporting(
             ServiceContext::new("gcloud-observability-error-reporting-example")
                 .with_version(env!("CARGO_PKG_VERSION")),

@@ -61,15 +61,14 @@ impl GcpOtlpExporterBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::otlp::testing::ScriptedAccessToken;
+    use crate::otlp::testing::{ScriptedAccessToken, ORDERS_PROJECT};
+    use crate::otlp::TelemetryEndpoint;
     use opentelemetry::trace::{Tracer as _, TracerProvider as _};
     use opentelemetry::{Context, Key, Value};
     use opentelemetry_sdk::error::OTelSdkResult;
-    use opentelemetry_sdk::trace::{
-        InMemorySpanExporter, Span, SpanData, SpanExporter as _, SpanProcessor,
-    };
+    use opentelemetry_sdk::trace::{Span, SpanData, SpanProcessor};
     use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
 
     /// Keeps the resource its provider hands it.
@@ -109,7 +108,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn provider_resource_names_the_project_and_keeps_the_service_name() {
         let probe = ResourceProbe::default();
-        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
             .with_resource(Resource::builder().with_service_name("orders").build())
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
 
@@ -123,7 +122,7 @@ mod tests {
         let resource = probe.resource();
         assert_eq!(
             resource.get(&Key::from_static_str("gcp.project_id")),
-            Some(Value::from("orders-project"))
+            Some(Value::from(ORDERS_PROJECT.to_string()))
         );
         assert_eq!(
             resource.get(&Key::from_static_str("service.name")),
@@ -134,7 +133,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn provider_builder_resource_wins_while_no_resource_is_set() {
         let probe = ResourceProbe::default();
-        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
 
         let _provider = builder
@@ -157,40 +156,40 @@ mod tests {
         );
         assert_eq!(
             resource.get(&Key::from_static_str("gcp.project_id")),
-            Some(Value::from("orders-project"))
+            Some(Value::from(ORDERS_PROJECT.to_string()))
         );
     }
 
-    #[tokio::test]
-    async fn export_gives_up_after_max_export_timeout() {
+    // An endpoint that takes the connection and never answers the TLS handshake. The OTLP
+    // exporter's own request timeout does not cover connecting, so it is the batch processor
+    // that gives up on the export.
+    // Multi-threaded: shutting down blocks this thread on the batch task.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn configured_export_timeout_bounds_shutdown_against_a_silent_endpoint() {
         let silent_server = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let endpoint = format!("http://{}", silent_server.local_addr().unwrap());
+        let endpoint =
+            TelemetryEndpoint::new(format!("https://{}", silent_server.local_addr().unwrap()))
+                .unwrap();
         tokio::spawn(async move {
             let mut held = Vec::new();
             while let Ok((connection, _)) = silent_server.accept().await {
                 held.push(connection);
             }
         });
-        let memory = InMemorySpanExporter::default();
-        let tracer_provider = SdkTracerProvider::builder()
-            .with_simple_exporter(memory.clone())
-            .build();
-        drop(tracer_provider.tracer("test").start("work"));
-        let spans = memory.get_finished_spans().unwrap();
-
-        let exporter = GcpOtlpExporterBuilder::new("orders-project".to_string())
+        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
             .with_endpoint(endpoint)
             .with_max_export_timeout(Duration::from_millis(300))
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
-            .span_exporter()
+            .create_provider()
             .await
             .unwrap();
+        drop(provider.tracer("test").start("work"));
 
-        let outcome = tokio::time::timeout(Duration::from_secs(5), exporter.export(spans)).await;
+        let started = Instant::now();
+        provider
+            .shutdown()
+            .expect_err("an abandoned export is reported");
 
-        assert!(
-            matches!(outcome, Ok(Err(_))),
-            "the export fails once the timeout passes, got {outcome:?}"
-        );
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 }

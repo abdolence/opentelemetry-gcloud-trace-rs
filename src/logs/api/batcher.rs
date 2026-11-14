@@ -287,6 +287,7 @@ fn report_due(last: &mut Option<Instant>, interval: Duration) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ids::LogId;
     use gcloud_sdk::google::api::MonitoredResource;
     use serde_json::json;
     use std::sync::Mutex as StdMutex;
@@ -339,7 +340,7 @@ mod tests {
     }
 
     fn config() -> GcpCloudLoggingApiConfig {
-        GcpCloudLoggingApiConfig::new("test-log")
+        GcpCloudLoggingApiConfig::new(LogId::from_static("test-log"))
             .with_batch_size(3)
             .with_flush_interval(Duration::from_secs(2))
             .with_queue_capacity(64)

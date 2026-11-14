@@ -19,7 +19,7 @@
 //! use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 //! use tracing_subscriber::layer::SubscriberExt;
 //!
-//! let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
+//! let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build();
 //!
 //! let subscriber = tracing_subscriber::registry::Registry::default()
 //!     .with(tracing_opentelemetry::layer().with_tracer(tracer))
@@ -57,6 +57,9 @@ pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource
 pub use otlp::OtlpSink;
 
 use crate::errors::GcloudObservabilityResult;
+use crate::ids::GoogleProjectId;
+#[cfg(feature = "logs-otlp")]
+use crate::ids::LogId;
 pub use error_reporting::{install_panic_hook, ServiceContext};
 use json::JsonSink;
 use std::sync::{Once, OnceLock};
@@ -119,7 +122,7 @@ fn is_transport_target(target: &str) -> bool {
 /// becomes exactly one sink, which the compiler checks rather than a runtime
 /// test.
 pub struct GcpCloudLoggingLayerBuilder<S = fn() -> std::io::Stdout> {
-    project_id: String,
+    google_project_id: GoogleProjectId,
     with_source_location: bool,
     error_reporting: Option<ServiceContext>,
     sink: S,
@@ -128,20 +131,24 @@ pub struct GcpCloudLoggingLayerBuilder<S = fn() -> std::io::Stdout> {
 impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
     /// Starts a builder writing JSON lines to stdout, with source location
     /// enabled.
-    pub fn new(project_id: impl Into<String>) -> Self {
+    pub fn new(google_project_id: GoogleProjectId) -> Self {
         Self {
-            project_id: project_id.into(),
+            google_project_id,
             with_source_location: true,
             error_reporting: None,
             sink: std::io::stdout,
         }
     }
 
-    /// Detects the Google Cloud project id from the environment or the
-    /// default service account, the same way the exporter builders'
-    /// `for_default_project_id` does, and starts a builder from it.
+    /// Starts a builder for the project of the environment the process runs in, as
+    /// [`gcloud_sdk::GoogleEnvironment::detect_google_project_id`] finds it.
+    ///
+    /// Fails with [`GcloudObservabilityError::InvalidParametersError`] when the detected ID is
+    /// not a valid [`GoogleProjectId`].
+    ///
+    /// [`GcloudObservabilityError::InvalidParametersError`]: crate::errors::GcloudObservabilityError::InvalidParametersError
     pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
-        Ok(Self::new(crate::common::detect_google_project_id().await?))
+        Ok(Self::new(GoogleProjectId::detect().await?))
     }
 }
 
@@ -175,7 +182,7 @@ impl<S> GcpCloudLoggingLayerBuilder<S> {
     /// Sets where JSON lines are written. Defaults to [`std::io::stdout`].
     pub fn with_json_writer<W2>(self, make_writer: W2) -> GcpCloudLoggingLayerBuilder<W2> {
         GcpCloudLoggingLayerBuilder {
-            project_id: self.project_id,
+            google_project_id: self.google_project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
             sink: make_writer,
@@ -198,7 +205,7 @@ impl<S> GcpCloudLoggingLayerBuilder<S> {
         config: GcpCloudLoggingApiConfig,
     ) -> GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
         GcpCloudLoggingLayerBuilder {
-            project_id: self.project_id,
+            google_project_id: self.google_project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
             sink: config,
@@ -225,16 +232,16 @@ impl<S> GcpCloudLoggingLayerBuilder<S> {
     pub fn with_otel_logger_provider(
         self,
         provider: &opentelemetry_sdk::logs::SdkLoggerProvider,
-        log_id: impl Into<String>,
+        log_id: LogId,
     ) -> GcpCloudLoggingLayerBuilder<OtlpSink> {
         use opentelemetry::logs::LoggerProvider;
         GcpCloudLoggingLayerBuilder {
-            project_id: self.project_id,
+            google_project_id: self.google_project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
             sink: OtlpSink::new(
                 provider.logger_with_scope(crate::common::instrumentation_scope()),
-                log_id.into(),
+                log_id,
             ),
         }
     }
@@ -254,13 +261,13 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
         self,
     ) -> GcloudObservabilityResult<(GcpCloudLoggingLayer, GcpCloudLoggingHandle)> {
         let config = self.sink;
-        let resource = config.resource_or_default(&self.project_id);
-        let log_name = format!("projects/{}/logs/{}", self.project_id, config.log_id);
+        let resource = config.resource_or_default(&self.google_project_id);
+        let log_name = format!("projects/{}/logs/{}", self.google_project_id, config.log_id);
         let sink = std::sync::Arc::new(api::GcloudLogEntrySink::new().await?);
         let (api_sink, handle) = api::spawn(&config, log_name, resource, sink);
         Ok((
             GcpCloudLoggingLayer {
-                project_id: self.project_id,
+                google_project_id: self.google_project_id,
                 with_source_location: self.with_source_location,
                 error_reporting: self.error_reporting,
                 sink: LogSink::CloudLoggingApi(api_sink),
@@ -278,7 +285,7 @@ impl GcpCloudLoggingLayerBuilder<OtlpSink> {
     /// `tracing-opentelemetry` layer to get trace correlation.
     pub fn build(self) -> GcpCloudLoggingLayer {
         GcpCloudLoggingLayer {
-            project_id: self.project_id,
+            google_project_id: self.google_project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
             sink: LogSink::Otlp(self.sink),
@@ -296,7 +303,7 @@ where
     /// `tracing-opentelemetry` layer to get trace correlation.
     pub fn build(self) -> GcpCloudLoggingLayer {
         GcpCloudLoggingLayer {
-            project_id: self.project_id,
+            google_project_id: self.google_project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
             sink: LogSink::Json(JsonSink::new(self.sink)),
@@ -309,7 +316,7 @@ where
 /// A [`tracing_subscriber::Layer`] that turns every event into one Cloud
 /// Logging entry.
 pub struct GcpCloudLoggingLayer {
-    project_id: String,
+    google_project_id: GoogleProjectId,
     with_source_location: bool,
     error_reporting: Option<ServiceContext>,
     sink: LogSink,
@@ -429,7 +436,7 @@ where
 
         let record = format::build_log_record(
             event,
-            &self.project_id,
+            &self.google_project_id,
             self.with_source_location,
             correlation.as_ref(),
             self.error_reporting.as_ref(),

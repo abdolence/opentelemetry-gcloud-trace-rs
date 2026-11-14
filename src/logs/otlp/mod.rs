@@ -4,6 +4,7 @@
 
 mod record;
 
+use crate::ids::LogId;
 use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::TraceCorrelation;
 use opentelemetry::logs::Logger;
@@ -15,11 +16,11 @@ use serde_json::{Map, Value};
 /// [`crate::logs::GcpCloudLoggingLayerBuilder::with_otel_logger_provider`].
 pub struct OtlpSink {
     logger: SdkLogger,
-    log_id: String,
+    log_id: LogId,
 }
 
 impl OtlpSink {
-    pub(crate) fn new(logger: SdkLogger, log_id: String) -> Self {
+    pub(crate) fn new(logger: SdkLogger, log_id: LogId) -> Self {
         Self { logger, log_id }
     }
 

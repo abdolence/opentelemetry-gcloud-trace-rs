@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::SharedBuffer;
+use common::{SharedBuffer, TEST_PROJECT};
 use gcloud_observability::logs::{GcpCloudLoggingLayerBuilder, ServiceContext};
 use serde_json::Value;
 use std::error::Error;
@@ -78,13 +78,13 @@ fn lines_from(
 }
 
 fn reporting_builder(buffer: &SharedBuffer) -> GcpCloudLoggingLayerBuilder<SharedBuffer> {
-    GcpCloudLoggingLayerBuilder::new("test-project")
+    GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
         .with_error_reporting(ServiceContext::new("orders").with_version("1.4.2"))
 }
 
 fn plain_builder(buffer: &SharedBuffer) -> GcpCloudLoggingLayerBuilder<SharedBuffer> {
-    GcpCloudLoggingLayerBuilder::new("test-project").with_json_writer(buffer.clone())
+    GcpCloudLoggingLayerBuilder::new(TEST_PROJECT).with_json_writer(buffer.clone())
 }
 
 fn position(haystack: &str, needle: &str) -> usize {

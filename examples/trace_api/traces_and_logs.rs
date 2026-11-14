@@ -25,6 +25,7 @@
 //! PROJECT_ID=your-project APP_MODE=production cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
 //! ```
 
+use gcloud_observability::ids::{GoogleProjectId, LogId};
 use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use opentelemetry::trace::TraceContextExt;
@@ -123,17 +124,18 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
     let mode = AppMode::from_env();
 
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
-        opentelemetry_sdk::Resource::builder()
-            .with_attributes(vec![opentelemetry::KeyValue::new(
-                "service.name",
-                "traces-and-logs-example",
-            )])
-            .build(),
-    );
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_attributes(vec![opentelemetry::KeyValue::new(
+                    "service.name",
+                    "traces-and-logs-example",
+                )])
+                .build(),
+        );
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer = gcp_trace_exporter.install(&tracer_provider);
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
@@ -148,12 +150,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // none does - never both.
     let (console_layer, api_layer, api_handle, json_layer) = match mode {
         AppMode::Development => {
-            let (api_layer, api_handle) = GcpCloudLoggingLayerBuilder::new(project_id.clone())
-                .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
-                    "gcloud-observability-example",
-                ))
-                .build_async()
-                .await?;
+            let (api_layer, api_handle) =
+                GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
+                    .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
+                        "gcloud-observability-example",
+                    )))
+                    .build_async()
+                    .await?;
             (
                 Some(tracing_subscriber::fmt::layer()),
                 Some(api_layer),
@@ -165,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             None,
             None,
             None,
-            Some(GcpCloudLoggingLayerBuilder::new(project_id.clone()).build()),
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()),
         ),
     };
 
@@ -215,10 +218,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!(
         trace_id = %trace_id,
         trace_explorer = %format!(
-            "https://console.cloud.google.com/traces/list?project={project_id}&tid={trace_id}"
+            "https://console.cloud.google.com/traces/list?project={google_project_id}&tid={trace_id}"
         ),
         logs_explorer = %format!(
-            "https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{project_id}%2Ftraces%2F{trace_id}%22?project={project_id}"
+            "https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{google_project_id}%2Ftraces%2F{trace_id}%22?project={google_project_id}"
         ),
         "request handled; open the trace in the console"
     );

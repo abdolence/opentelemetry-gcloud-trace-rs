@@ -10,6 +10,8 @@ pub type GcloudObservabilityResult<E> = Result<E, GcloudObservabilityError>;
 pub enum GcloudObservabilityError {
     SystemError(GcloudObservabilitySystemError),
     NetworkError(GcloudObservabilityNetworkError),
+    /// A value refused before it was used, such as a malformed project ID.
+    InvalidParametersError(GcloudObservabilityInvalidParametersError),
 }
 
 impl GcloudObservabilityError {
@@ -26,6 +28,13 @@ impl GcloudObservabilityError {
                 .with_root_cause(Box::new(root_cause)),
         )
     }
+
+    pub(crate) fn invalid_parameters(field: impl Into<String>, error: impl Into<String>) -> Self {
+        Self::InvalidParametersError(GcloudObservabilityInvalidParametersError::new(
+            field.into(),
+            error.into(),
+        ))
+    }
 }
 
 impl std::fmt::Display for GcloudObservabilityError {
@@ -33,6 +42,7 @@ impl std::fmt::Display for GcloudObservabilityError {
         match *self {
             GcloudObservabilityError::SystemError(ref err) => err.fmt(f),
             GcloudObservabilityError::NetworkError(ref err) => err.fmt(f),
+            GcloudObservabilityError::InvalidParametersError(ref err) => err.fmt(f),
         }
     }
 }
@@ -42,6 +52,7 @@ impl std::error::Error for GcloudObservabilityError {
         match *self {
             GcloudObservabilityError::SystemError(ref err) => err.source(),
             GcloudObservabilityError::NetworkError(ref err) => err.source(),
+            GcloudObservabilityError::InvalidParametersError(ref err) => err.source(),
         }
     }
 }
@@ -78,6 +89,23 @@ impl std::fmt::Display for GcloudObservabilityNetworkError {
 }
 
 impl std::error::Error for GcloudObservabilityNetworkError {}
+
+#[derive(Debug, Eq, PartialEq, Clone, Builder)]
+pub struct GcloudObservabilityInvalidParametersError {
+    /// The parameter, named as the builders name it: `google_project_id`, `log_id` or
+    /// `endpoint`.
+    pub field: String,
+    /// Why it was refused.
+    pub error: String,
+}
+
+impl std::fmt::Display for GcloudObservabilityInvalidParametersError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid parameters error: {} {}", self.field, self.error)
+    }
+}
+
+impl std::error::Error for GcloudObservabilityInvalidParametersError {}
 
 impl From<gcloud_sdk::error::Error> for GcloudObservabilityError {
     fn from(gcloud_error: Error) -> Self {

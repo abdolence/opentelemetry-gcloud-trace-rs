@@ -17,6 +17,7 @@ pub(crate) use batcher::{spawn, ApiSink, LogEntrySink};
 pub use gcloud_sdk::google::api::MonitoredResource;
 
 use crate::errors::GcloudObservabilityResult;
+use crate::ids::{GoogleProjectId, LogId};
 use gcloud_sdk::google::logging::v2::logging_service_v2_client::LoggingServiceV2Client;
 use gcloud_sdk::google::logging::v2::WriteLogEntriesRequest;
 use gcloud_sdk::{GoogleApi, GoogleAuthMiddleware};
@@ -30,7 +31,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 /// How the Cloud Logging API sink writes: which log to write to, what resource
 /// the entries are attributed to, and how aggressively they are batched.
 pub struct GcpCloudLoggingApiConfig {
-    pub(crate) log_id: String,
+    pub(crate) log_id: LogId,
     pub(crate) resource: Option<MonitoredResource>,
     pub(crate) batch_size: usize,
     pub(crate) flush_interval: Duration,
@@ -39,11 +40,10 @@ pub struct GcpCloudLoggingApiConfig {
 }
 
 impl GcpCloudLoggingApiConfig {
-    /// Writes to `projects/{project}/logs/{log_id}`. Cloud Logging limits a
-    /// log id to 512 characters of alphanumerics, `/`, `_`, `-` and `.`.
-    pub fn new(log_id: impl Into<String>) -> Self {
+    /// Writes to `projects/{project}/logs/{log_id}`.
+    pub fn new(log_id: LogId) -> Self {
         Self {
-            log_id: log_id.into(),
+            log_id,
             resource: None,
             batch_size: DEFAULT_BATCH_SIZE,
             flush_interval: DEFAULT_FLUSH_INTERVAL,
@@ -89,10 +89,13 @@ impl GcpCloudLoggingApiConfig {
         self
     }
 
-    pub(crate) fn resource_or_default(&self, project_id: &str) -> MonitoredResource {
+    pub(crate) fn resource_or_default(
+        &self,
+        google_project_id: &GoogleProjectId,
+    ) -> MonitoredResource {
         self.resource.clone().unwrap_or_else(|| MonitoredResource {
             r#type: "global".to_string(),
-            labels: [("project_id".to_string(), project_id.to_string())]
+            labels: [("project_id".to_string(), google_project_id.to_string())]
                 .into_iter()
                 .collect(),
         })

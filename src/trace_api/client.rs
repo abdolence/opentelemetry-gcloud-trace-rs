@@ -1,4 +1,5 @@
 use crate::errors::GcloudObservabilityResult;
+use crate::ids::GoogleProjectId;
 use gcloud_sdk::google::devtools::cloudtrace::v2::{
     attribute_value as gcp_attribute_value, span as gspan, AttributeValue as GcpAttributeValue,
     BatchWriteSpansRequest, Span as GcpSpan, TruncatableString,
@@ -16,14 +17,14 @@ pub struct GcpCloudTraceExporterClient {
             GoogleAuthMiddleware,
         >,
     >,
-    google_project_id: String,
+    google_project_id: GoogleProjectId,
     resource_attributes: Vec<KeyValue>,
     export_span_events: bool,
 }
 
 impl GcpCloudTraceExporterClient {
     pub async fn new(
-        google_project_id: &str,
+        google_project_id: GoogleProjectId,
         resource: Resource,
         export_span_events: bool,
     ) -> GcloudObservabilityResult<Self> {
@@ -40,7 +41,7 @@ impl GcpCloudTraceExporterClient {
 
         Ok(Self {
             client,
-            google_project_id: google_project_id.to_string(),
+            google_project_id,
             resource_attributes: resource
                 .iter()
                 .map(|(k, v)| KeyValue::new(k.clone(), v.clone()))
@@ -75,7 +76,7 @@ impl GcpCloudTraceExporterClient {
     }
 
     fn convert_span(
-        google_project_id: &str,
+        google_project_id: &GoogleProjectId,
         resource_attributes: &[KeyValue],
         export_span_events: bool,
         span: SpanData,
@@ -288,6 +289,8 @@ mod tests {
     use opentelemetry::trace::{TraceContextExt, Tracer, TracerProvider as _};
     use opentelemetry_sdk::trace::{InMemorySpanExporter, SdkTracerProvider, SimpleSpanProcessor};
 
+    const TEST_PROJECT: GoogleProjectId = GoogleProjectId::from_static("test-project");
+
     fn span_with_one_event() -> SpanData {
         let exporter = InMemorySpanExporter::default();
         let provider = SdkTracerProvider::builder()
@@ -310,7 +313,7 @@ mod tests {
     #[test]
     fn span_events_are_omitted_by_default() {
         let span = GcpCloudTraceExporterClient::convert_span(
-            "test-project",
+            &TEST_PROJECT,
             &[],
             false,
             span_with_one_event(),
@@ -322,7 +325,7 @@ mod tests {
     #[test]
     fn span_events_are_exported_when_enabled() {
         let span = GcpCloudTraceExporterClient::convert_span(
-            "test-project",
+            &TEST_PROJECT,
             &[],
             true,
             span_with_one_event(),

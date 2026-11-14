@@ -6,6 +6,7 @@
 //! Each key below cites the row of that page it follows. What the page maps to no typed field
 //! becomes a label, which is why only the record's own user fields go into the body.
 
+use crate::ids::LogId;
 use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::{
     as_i64, duration_seconds, take, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS,
@@ -47,7 +48,7 @@ pub(crate) fn populate<R: LogRecord>(
     mut record: Map<String, Value>,
     exception: Option<&ExceptionDetails>,
     correlation: Option<&TraceCorrelation>,
-    log_id: &str,
+    log_id: &LogId,
 ) {
     take(&mut record, KEY_TIME, |value| {
         parse_timestamp(&value).map(|timestamp| log_record.set_timestamp(timestamp))

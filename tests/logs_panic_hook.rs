@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::SharedBuffer;
+use common::{SharedBuffer, TEST_PROJECT};
 use gcloud_observability::logs::{install_panic_hook, GcpCloudLoggingLayerBuilder, ServiceContext};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing_subscriber::layer::SubscriberExt;
@@ -19,7 +19,7 @@ fn panic_emits_one_error_event_and_calls_the_previous_hook() {
     install_panic_hook();
 
     let buffer = SharedBuffer::default();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
         .with_error_reporting(ServiceContext::new("orders"))
         .build();

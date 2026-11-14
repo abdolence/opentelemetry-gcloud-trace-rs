@@ -1,9 +1,12 @@
 //! Test support shared by the integration tests that read the JSON sink's output.
 
+use gcloud_observability::ids::GoogleProjectId;
 use serde_json::Value;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use tracing_subscriber::fmt::MakeWriter;
+
+pub const TEST_PROJECT: GoogleProjectId = GoogleProjectId::from_static("test-project");
 
 /// A writer for the JSON sink that keeps what the layer wrote. Clones share the buffer.
 #[derive(Clone, Default)]

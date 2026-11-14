@@ -1,5 +1,6 @@
 #![cfg(feature = "logs-otlp")]
 
+use gcloud_observability::ids::{GoogleProjectId, LogId};
 use gcloud_observability::logs::{GcpCloudLoggingLayerBuilder, ServiceContext};
 use opentelemetry::logs::{AnyValue, Severity};
 use opentelemetry::trace::TracerProvider;
@@ -16,7 +17,8 @@ use std::sync::Once;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::Registry;
 
-const LOG_ID: &str = "orders-log";
+const TEST_PROJECT: GoogleProjectId = GoogleProjectId::from_static("test-project");
+const ORDERS_LOG: LogId = LogId::from_static("orders-log");
 
 fn logger_provider() -> (SdkLoggerProvider, InMemoryLogExporter) {
     let exporter = InMemoryLogExporter::default();
@@ -57,8 +59,8 @@ fn string(value: &str) -> AnyValue {
 #[test]
 fn severity_is_sent_as_the_number_google_maps_to_it() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -99,8 +101,8 @@ fn trace_context_is_taken_from_the_correlated_span() {
         .with_span_processor(SimpleSpanProcessor::new(span_exporter.clone()))
         .build();
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
     let subscriber = Registry::default()
         .with(tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer("otlp-sink-test")))
@@ -133,8 +135,8 @@ fn trace_context_is_taken_from_the_correlated_span() {
 #[test]
 fn http_request_operation_source_location_labels_and_insert_id_use_the_attributes_google_reads() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     let event_line = line!() + 2;
@@ -153,7 +155,10 @@ fn http_request_operation_source_location_labels_and_insert_id_use_the_attribute
     let records = emitted(&exporter);
     let record = &records[0];
 
-    assert_eq!(attribute(record, "gcp.log.name"), Some(&string(LOG_ID)));
+    assert_eq!(
+        attribute(record, "gcp.log.name"),
+        Some(&string(&ORDERS_LOG.to_string()))
+    );
 
     let http_request = attribute(record, "gcp.http_request").expect("httpRequest is set");
     assert_eq!(
@@ -184,8 +189,8 @@ fn http_request_operation_source_location_labels_and_insert_id_use_the_attribute
 #[test]
 fn http_request_latency_is_sent_as_seconds() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -215,8 +220,8 @@ fn http_request_latency_is_sent_as_seconds() {
 #[test]
 fn http_request_members_that_do_not_fit_stay_in_the_body() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -245,8 +250,8 @@ fn http_request_members_that_do_not_fit_stay_in_the_body() {
 #[test]
 fn operation_members_that_do_not_fit_stay_in_the_body() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -274,8 +279,8 @@ fn operation_members_that_do_not_fit_stay_in_the_body() {
 #[test]
 fn values_that_fit_no_typed_field_stay_in_the_body() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -303,8 +308,8 @@ fn values_that_fit_no_typed_field_stay_in_the_body() {
 #[test]
 fn body_carries_the_message_target_and_user_fields() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -322,8 +327,8 @@ fn body_carries_the_message_target_and_user_fields() {
 #[test]
 fn events_of_the_transport_crates_are_not_exported() {
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
@@ -385,8 +390,8 @@ fn as_str(value: &AnyValue) -> &str {
 fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
     enable_backtraces();
     let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
+    let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
+        .with_otel_logger_provider(&provider, ORDERS_LOG)
         .with_error_reporting(ServiceContext::new("orders").with_version("1.4.2"))
         .build();
 

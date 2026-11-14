@@ -1,6 +1,7 @@
-//! Credentials that serve scripted access tokens, for tests that need Google auth headers
-//! without a token endpoint.
+//! Fixtures for the exporter tests: the project they build for, and credentials that serve
+//! scripted access tokens, for tests that need Google auth headers without a token endpoint.
 
+use crate::ids::GoogleProjectId;
 use gcloud_sdk::google_cloud_auth::credentials::{
     CacheableResource, Credentials, CredentialsProvider, EntityTag,
 };
@@ -9,6 +10,8 @@ use gcloud_sdk::tonic::codegen::http::header::AUTHORIZATION;
 use gcloud_sdk::tonic::codegen::http::{Extensions, HeaderMap, HeaderValue};
 use gcloud_sdk::GoogleAuthHeaders;
 use std::sync::{Arc, Mutex};
+
+pub(crate) const ORDERS_PROJECT: GoogleProjectId = GoogleProjectId::from_static("orders-project");
 
 /// Serves the access token last scripted under an entity tag that changes with the token,
 /// the way real credentials answer `NotModified` until they hold a new one. Fails while no

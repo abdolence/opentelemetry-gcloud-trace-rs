@@ -58,7 +58,8 @@ impl GcpOtlpExporterBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::otlp::testing::ScriptedAccessToken;
+    use crate::otlp::testing::{ScriptedAccessToken, ORDERS_PROJECT};
+    use crate::otlp::TelemetryEndpoint;
     use opentelemetry::logs::{LogRecord, Logger, LoggerProvider};
     use std::sync::{Arc, Mutex};
     use tracing::{Event, Level, Subscriber};
@@ -89,9 +90,9 @@ mod tests {
             Registry::default().with(ErrorTargets(Arc::clone(&error_targets))),
         )
         .unwrap();
-        let unreachable_endpoint = "http://127.0.0.1:1";
-        let provider = GcpOtlpExporterBuilder::new("orders-project".to_string())
-            .with_endpoint(unreachable_endpoint.to_string())
+        let unreachable_endpoint = TelemetryEndpoint::new("https://127.0.0.1:1").unwrap();
+        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+            .with_endpoint(unreachable_endpoint)
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
             .create_logger_provider()
             .await

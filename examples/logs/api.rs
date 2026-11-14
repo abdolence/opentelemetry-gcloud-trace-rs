@@ -1,3 +1,4 @@
+use gcloud_observability::ids::{GoogleProjectId, LogId};
 use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
@@ -10,24 +11,25 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
 
-    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(project_id.clone()).with_resource(
-        opentelemetry_sdk::Resource::builder()
-            .with_attributes(vec![opentelemetry::KeyValue::new(
-                "service.name",
-                "logging-only-api-example",
-            )])
-            .build(),
-    );
+    let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
+        .with_resource(
+            opentelemetry_sdk::Resource::builder()
+                .with_attributes(vec![opentelemetry::KeyValue::new(
+                    "service.name",
+                    "logging-only-api-example",
+                )])
+                .build(),
+        );
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer = gcp_trace_exporter.install(&tracer_provider);
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id)
-        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
+    let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
+        .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(
             "gcloud-observability-example",
-        ))
+        )))
         .build_async()
         .await?;
 

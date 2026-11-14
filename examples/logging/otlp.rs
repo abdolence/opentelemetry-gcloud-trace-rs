@@ -13,6 +13,7 @@
 //! PROJECT_ID=your-project cargo run --example logging-otlp --features logs-otlp
 //! ```
 
+use gcloud_observability::ids::{GoogleProjectId, LogId};
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use gcloud_observability::otlp::GcpOtlpExporterBuilder;
 use opentelemetry::trace::TraceContextExt;
@@ -44,9 +45,9 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let project_id = config_env_var("PROJECT_ID")?;
+    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
 
-    let otlp = GcpOtlpExporterBuilder::new(project_id.clone()).with_resource(
+    let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
         opentelemetry_sdk::Resource::builder()
             .with_attributes(vec![opentelemetry::KeyValue::new(
                 "service.name",
@@ -59,8 +60,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let logger_provider = otlp.create_logger_provider().await?;
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    let log_layer = GcpCloudLoggingLayerBuilder::new(project_id.clone())
-        .with_otel_logger_provider(&logger_provider, "gcloud-observability-example")
+    let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id.clone())
+        .with_otel_logger_provider(
+            &logger_provider,
+            LogId::from_static("gcloud-observability-example"),
+        )
         .build();
 
     // The OpenTelemetry layer must come first: the log layer reads the span context that layer
@@ -98,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!(
         trace_id = %trace_id,
         trace_explorer = %format!(
-            "https://console.cloud.google.com/traces/list?project={project_id}&tid={trace_id}"
+            "https://console.cloud.google.com/traces/list?project={google_project_id}&tid={trace_id}"
         ),
         "request handled; open the trace in the console"
     );

@@ -2,6 +2,7 @@
 //! (`telemetry.googleapis.com`), authenticated with Google credentials.
 
 mod auth;
+mod endpoint;
 #[cfg(feature = "logs-otlp")]
 mod logs;
 #[cfg(test)]
@@ -9,14 +10,15 @@ mod testing;
 mod trace;
 
 pub use auth::GcpAuthInterceptor;
+pub use endpoint::TelemetryEndpoint;
 
 /// The Google credentials' headers [`GcpAuthInterceptor::new`] and
 /// [`GcpOtlpExporterBuilder::auth_headers`] take, re-exported so callers need not depend on
 /// `gcloud-sdk` directly.
 pub use gcloud_sdk::GoogleAuthHeaders;
 
-use crate::common;
 use crate::errors::GcloudObservabilityResult;
+use crate::ids::GoogleProjectId;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
 use opentelemetry_otlp::{WithExportConfig, WithTonicConfig};
@@ -35,7 +37,7 @@ const TELEMETRY_API_ENDPOINT: &str = "https://telemetry.googleapis.com";
 pub struct GcpOtlpExporterBuilder {
     /// Set as `gcp.project_id` on the resource of every provider built here, over any
     /// value the resource already has.
-    pub google_project_id: String,
+    pub google_project_id: GoogleProjectId,
     /// Merged key by key over the resource of the provider builder, and under
     /// `gcp.project_id`. While unset, the provider builder's resource stands;
     /// `create_provider` and `create_logger_provider` start from the OpenTelemetry SDK's
@@ -44,10 +46,9 @@ pub struct GcpOtlpExporterBuilder {
     /// default: its resource is this one and `gcp.project_id`, so set `service.name` here or
     /// on the builder.
     pub resource: Option<Resource>,
-    /// Defaults to `https://telemetry.googleapis.com`. Regional endpoints are
-    /// `https://telemetry.REGION.rep.googleapis.com`. TLS is verified against the host
-    /// of the endpoint.
-    pub endpoint: Option<String>,
+    /// Defaults to `https://telemetry.googleapis.com`. TLS is verified against the host of the
+    /// endpoint.
+    pub endpoint: Option<TelemetryEndpoint>,
     /// The longest a batch export may take before the batch is dropped. It is the timeout of
     /// every export request, and for spans also the batch processor's bound. Shutdown exports
     /// every batch queued ahead of it, one after the other, so it can take this long once per
@@ -64,8 +65,15 @@ pub struct GcpOtlpExporterBuilder {
 }
 
 impl GcpOtlpExporterBuilder {
+    /// Starts a builder for the project of the environment the process runs in, as
+    /// [`gcloud_sdk::GoogleEnvironment::detect_google_project_id`] finds it.
+    ///
+    /// Fails with [`GcloudObservabilityError::InvalidParametersError`] when the detected ID is
+    /// not a valid [`GoogleProjectId`].
+    ///
+    /// [`GcloudObservabilityError::InvalidParametersError`]: crate::errors::GcloudObservabilityError::InvalidParametersError
     pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
-        Ok(Self::new(common::detect_google_project_id().await?))
+        Ok(Self::new(GoogleProjectId::detect().await?))
     }
 
     /// The interceptor every exporter built here authenticates with, created over
@@ -88,7 +96,10 @@ impl GcpOtlpExporterBuilder {
     where
         B: WithExportConfig + WithTonicConfig,
     {
-        let endpoint = self.endpoint.as_deref().unwrap_or(TELEMETRY_API_ENDPOINT);
+        let endpoint = match &self.endpoint {
+            Some(endpoint) => endpoint.to_string(),
+            None => TELEMETRY_API_ENDPOINT.to_string(),
+        };
         let exporter = exporter
             .with_endpoint(endpoint)
             .with_tls_config(ClientTlsConfig::new().with_enabled_roots())
@@ -105,7 +116,7 @@ impl GcpOtlpExporterBuilder {
         let project = Resource::builder_empty()
             .with_attribute(KeyValue::new(
                 "gcp.project_id",
-                self.google_project_id.clone(),
+                self.google_project_id.to_string(),
             ))
             .build();
         self.resource.clone().into_iter().chain([project])
@@ -115,13 +126,12 @@ impl GcpOtlpExporterBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::errors::GcloudObservabilityError;
-    use crate::otlp::testing::ScriptedAccessToken;
+    use crate::otlp::testing::{ScriptedAccessToken, ORDERS_PROJECT};
 
     #[tokio::test]
     async fn exporters_of_one_builder_share_one_refresh_task() {
         let auth_headers = ScriptedAccessToken::new("first-token").auth_headers();
-        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
             .with_auth_headers(Arc::clone(&auth_headers));
 
         let _spans = builder.auth_interceptor().await.unwrap();
@@ -129,19 +139,5 @@ mod tests {
 
         // Held here, by the builder and by the one refresh task.
         assert_eq!(Arc::strong_count(&auth_headers), 3);
-    }
-
-    #[tokio::test]
-    async fn an_endpoint_that_is_not_a_uri_fails_the_exporter_build() {
-        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
-            .with_endpoint("not a uri".to_string())
-            .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
-
-        let result = builder.span_exporter().await;
-
-        assert!(matches!(
-            result,
-            Err(GcloudObservabilityError::SystemError(_))
-        ));
     }
 }
