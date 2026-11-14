@@ -27,13 +27,10 @@ path = "src/lib.rs"
 tracing = "0.1"
 opentelemetry = { version = "0.33" }
 opentelemetry_sdk = { version = "0.33", features = ["rt-tokio", "experimental_trace_batch_span_processor_with_async_runtime"] }
-opentelemetry-semantic-conventions = { version = "0.33" }
 gcloud-sdk = { version = "0.33", default-features = false }
-rvstruct = "0.3"
 rsb_derive = "0.5"
-tokio-stream = "0.1"
-futures = "0.3"
-async-trait = "0.1"
+futures = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = ["fmt"], optional = true }
 tracing-opentelemetry = { version = "0.34", optional = true }
 serde_json = { version = "1", optional = true }
@@ -53,8 +50,8 @@ auth-default-crypto = ["gcloud-sdk/auth-default-crypto", "opentelemetry-otlp?/tl
 logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json", "dep:time"]
 # `gcloud-sdk/google-logging-v2` already pulls in `google.logging.type` and
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
-logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
-trace-api = ["gcloud-sdk/google-devtools-cloudtrace-v2"]
+logs-api = ["logs", "dep:tokio", "dep:async-trait", "gcloud-sdk/google-logging-v2"]
+trace-api = ["dep:futures", "gcloud-sdk/google-devtools-cloudtrace-v2"]
 otlp = ["dep:opentelemetry-otlp", "dep:tokio"]
 logs-otlp = ["logs", "otlp", "opentelemetry-otlp/logs"]
 
