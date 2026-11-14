@@ -12,6 +12,22 @@ pub enum GcloudObservabilityError {
     NetworkError(GcloudObservabilityNetworkError),
 }
 
+impl GcloudObservabilityError {
+    pub(crate) fn system(message: impl Into<String>) -> Self {
+        Self::SystemError(GcloudObservabilitySystemError::new(message.into()))
+    }
+
+    pub(crate) fn system_caused_by(
+        message: impl Into<String>,
+        root_cause: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::SystemError(
+            GcloudObservabilitySystemError::new(message.into())
+                .with_root_cause(Box::new(root_cause)),
+        )
+    }
+}
+
 impl std::fmt::Display for GcloudObservabilityError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
@@ -65,10 +81,7 @@ impl std::error::Error for GcloudObservabilityNetworkError {}
 
 impl From<gcloud_sdk::error::Error> for GcloudObservabilityError {
     fn from(gcloud_error: Error) -> Self {
-        GcloudObservabilityError::SystemError(
-            GcloudObservabilitySystemError::new("Google SDK error".to_string())
-                .with_root_cause(Box::new(gcloud_error)),
-        )
+        GcloudObservabilityError::system_caused_by("Google SDK error", gcloud_error)
     }
 }
 
@@ -83,10 +96,7 @@ impl From<gcloud_sdk::tonic::Status> for GcloudObservabilityError {
 #[cfg(feature = "otlp")]
 impl From<opentelemetry_otlp::ExporterBuildError> for GcloudObservabilityError {
     fn from(error: opentelemetry_otlp::ExporterBuildError) -> Self {
-        GcloudObservabilityError::SystemError(
-            GcloudObservabilitySystemError::new("OTLP exporter error".to_string())
-                .with_root_cause(Box::new(error)),
-        )
+        GcloudObservabilityError::system_caused_by("OTLP exporter error", error)
     }
 }
 

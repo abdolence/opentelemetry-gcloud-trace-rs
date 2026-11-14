@@ -1,8 +1,6 @@
 //! Helpers shared by the exporters and the logging layer.
 
-use crate::errors::{
-    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
-};
+use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
 use opentelemetry::{trace::TracerProvider, InstrumentationScope};
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
@@ -20,9 +18,9 @@ pub(crate) async fn detect_google_project_id() -> GcloudObservabilityResult<Stri
     gcloud_sdk::GoogleEnvironment::detect_google_project_id()
         .await
         .ok_or_else(|| {
-            GcloudObservabilityError::SystemError(GcloudObservabilitySystemError::new(
-                "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string(),
-            ))
+            GcloudObservabilityError::system(
+                "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts",
+            )
         })
 }
 

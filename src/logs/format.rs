@@ -2,9 +2,9 @@
 //! entry from.
 //!
 //! Kept independent of `tracing_subscriber::Layer` and of any particular
-//! sink: the JSON sink serialises the map directly, and the Cloud Logging API
-//! sink converts the same map into a `LogEntry`, so the field mapping below
-//! exists once.
+//! sink: the JSON sink serialises the map directly, the Cloud Logging API
+//! sink converts the same map into a `LogEntry`, and the OTLP sink into an
+//! OpenTelemetry log record, so the field mapping below exists once.
 
 use super::error_reporting::{error_chain, ExceptionDetails, ServiceContext};
 use opentelemetry::trace::{SpanId, TraceId};

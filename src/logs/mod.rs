@@ -112,17 +112,17 @@ fn is_transport_target(target: &str) -> bool {
 
 /// Builds a [`GcpCloudLoggingLayer`].
 ///
-/// `W` is the sink the layer is built for: a `MakeWriter` for JSON lines, a
-/// `GcpCloudLoggingApiConfig` (feature `logs-api`) or an [`OtlpSink`] (feature
+/// `S` is the sink the layer is built for: a `MakeWriter` for JSON lines, a
+/// `GcpCloudLoggingApiConfig` (feature `logs-api`) or an `OtlpSink` (feature
 /// `logs-otlp`). Each has its own build method, `build` for JSON lines and
 /// OpenTelemetry, `build_async` for the Cloud Logging API, so a builder
 /// becomes exactly one sink, which the compiler checks rather than a runtime
 /// test.
-pub struct GcpCloudLoggingLayerBuilder<W = fn() -> std::io::Stdout> {
+pub struct GcpCloudLoggingLayerBuilder<S = fn() -> std::io::Stdout> {
     project_id: String,
     with_source_location: bool,
     error_reporting: Option<ServiceContext>,
-    make_writer: W,
+    sink: S,
 }
 
 impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
@@ -133,7 +133,7 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
             project_id: project_id.into(),
             with_source_location: true,
             error_reporting: None,
-            make_writer: std::io::stdout,
+            sink: std::io::stdout,
         }
     }
 
@@ -145,7 +145,7 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
     }
 }
 
-impl<W> GcpCloudLoggingLayerBuilder<W> {
+impl<S> GcpCloudLoggingLayerBuilder<S> {
     /// Adds `logging.googleapis.com/sourceLocation` (file and line) to every
     /// log line. Enabled by default.
     pub fn with_source_location(mut self, enabled: bool) -> Self {
@@ -178,7 +178,7 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
-            make_writer,
+            sink: make_writer,
         }
     }
 
@@ -201,7 +201,7 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
-            make_writer: config,
+            sink: config,
         }
     }
 
@@ -232,7 +232,7 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
-            make_writer: OtlpSink::new(
+            sink: OtlpSink::new(
                 provider.logger_with_scope(crate::common::instrumentation_scope()),
                 log_id.into(),
             ),
@@ -253,7 +253,7 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
     pub async fn build_async(
         self,
     ) -> GcloudObservabilityResult<(GcpCloudLoggingLayer, GcpCloudLoggingHandle)> {
-        let config = self.make_writer;
+        let config = self.sink;
         let resource = config.resource_or_default(&self.project_id);
         let log_name = format!("projects/{}/logs/{}", self.project_id, config.log_id);
         let sink = std::sync::Arc::new(api::GcloudLogEntrySink::new().await?);
@@ -281,16 +281,16 @@ impl GcpCloudLoggingLayerBuilder<OtlpSink> {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
-            sink: LogSink::Otlp(self.make_writer),
+            sink: LogSink::Otlp(self.sink),
             dispatch: OnceLock::new(),
             missing_otel_layer_warned: Once::new(),
         }
     }
 }
 
-impl<W> GcpCloudLoggingLayerBuilder<W>
+impl<S> GcpCloudLoggingLayerBuilder<S>
 where
-    W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
+    S: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {
     /// Builds the layer. Register it on a subscriber after the
     /// `tracing-opentelemetry` layer to get trace correlation.
@@ -299,7 +299,7 @@ where
             project_id: self.project_id,
             with_source_location: self.with_source_location,
             error_reporting: self.error_reporting,
-            sink: LogSink::Json(JsonSink::new(self.make_writer)),
+            sink: LogSink::Json(JsonSink::new(self.sink)),
             dispatch: OnceLock::new(),
             missing_otel_layer_warned: Once::new(),
         }

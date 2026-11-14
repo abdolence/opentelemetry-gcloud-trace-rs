@@ -31,8 +31,6 @@ const ATTRIBUTE_HTTP_REQUEST: &str = "gcp.http_request";
 const ATTRIBUTE_OPERATION: &str = "gcp.operation";
 /// `LogEntry.sourceLocation.file`.
 const ATTRIBUTE_SOURCE_FILE: &str = "code.file.path";
-/// `LogEntry.sourceLocation.function`.
-const ATTRIBUTE_SOURCE_FUNCTION: &str = "code.function.name";
 /// `LogEntry.sourceLocation.line`.
 const ATTRIBUTE_SOURCE_LINE: &str = "code.line.number";
 /// OpenTelemetry's exception conventions, which Google maps to labels. `exception.stacktrace`
@@ -84,9 +82,6 @@ pub(crate) fn populate<R: LogRecord>(
         }
         if let Some(line) = location.get("line").and_then(as_i64) {
             log_record.add_attribute(ATTRIBUTE_SOURCE_LINE, line);
-        }
-        if let Some(function) = location.get("function").and_then(Value::as_str) {
-            log_record.add_attribute(ATTRIBUTE_SOURCE_FUNCTION, function.to_string());
         }
         Some(())
     });

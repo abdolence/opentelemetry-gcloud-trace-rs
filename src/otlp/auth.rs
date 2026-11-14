@@ -1,6 +1,4 @@
-use crate::errors::{
-    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
-};
+use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
 use gcloud_sdk::tonic::metadata::{KeyAndValueRef, MetadataMap};
 use gcloud_sdk::tonic::service::Interceptor;
 use gcloud_sdk::tonic::{Request, Status};
@@ -42,11 +40,9 @@ impl GcpAuthInterceptor {
         auth_headers: impl Into<Arc<GoogleAuthHeaders>>,
     ) -> GcloudObservabilityResult<Self> {
         let runtime = Handle::try_current().map_err(|error| {
-            GcloudObservabilityError::SystemError(
-                GcloudObservabilitySystemError::new(
-                    "GcpAuthInterceptor refreshes its credentials on a Tokio runtime, and none is running".to_string(),
-                )
-                .with_root_cause(Box::new(error)),
+            GcloudObservabilityError::system_caused_by(
+                "GcpAuthInterceptor refreshes its credentials on a Tokio runtime, and none is running",
+                error,
             )
         })?;
         let auth_headers = auth_headers.into();

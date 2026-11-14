@@ -230,11 +230,8 @@ pub(crate) fn error_chain(error: &(dyn Error + 'static)) -> Vec<String> {
 pub fn install_panic_hook() {
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let payload = info.payload();
-        let message = payload
-            .downcast_ref::<&str>()
-            .copied()
-            .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+        let message = info
+            .payload_as_str()
             .unwrap_or("panic with a non-string payload");
         match info.location() {
             Some(location) => tracing::error!(
