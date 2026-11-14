@@ -10,9 +10,13 @@ mod trace;
 
 pub use auth::GcpAuthInterceptor;
 
+/// The Google credentials' headers [`GcpAuthInterceptor::new`] and
+/// [`GcpOtlpExporterBuilder::auth_headers`] take, re-exported so callers need not depend on
+/// `gcloud-sdk` directly.
+pub use gcloud_sdk::GoogleAuthHeaders;
+
 use crate::common;
 use crate::errors::GcloudObservabilityResult;
-use gcloud_sdk::GoogleAuthHeaders;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
 use opentelemetry_otlp::{WithExportConfig, WithTonicConfig};
