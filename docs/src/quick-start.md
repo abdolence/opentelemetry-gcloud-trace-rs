@@ -4,7 +4,7 @@ Cargo.toml:
 
 ```toml
 [dependencies]
-gcloud-observability = { version = "0.31", features = ["otlp"] }
+gcloud-observability = { version = "0.31", features = ["logs-otlp"] }
 opentelemetry_sdk = "0.33"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -15,27 +15,33 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 Minimum supported Rust version is 1.91.
 
 The `logs` feature, which provides the logging layer, is on by default.
-`otlp` adds the span exporter for the Telemetry API.
+`logs-otlp` adds the span exporter for the Telemetry API and the OTLP sink of the logging layer; it includes `logs` and `otlp`.
 
-The setup below exports spans through OTLP and writes every event to stdout as a Cloud Logging JSON line that carries the trace and span it happened in:
+Spans go to the Telemetry API through OTLP in both modes.
+`APP_MODE` (default `development`) picks the log sink:
+
+- `development`: console lines, and the same entries over OTLP from the same builder, so that a run from a laptop shows the correlated entries in the console;
+- `production`: JSON lines on stdout, which a logging agent on GKE, Cloud Run or GCE collects.
 
 ```rust,ignore
+{{#include ../../examples/quickstart.rs:app-mode}}
+
 {{#include ../../examples/quickstart.rs:setup}}
 ```
 
 The setup needs these imports:
 
 ```rust,ignore
+use gcloud_observability::ids::LogId;
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use gcloud_observability::otlp::GcpOtlpExporterBuilder;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 ```
 
-The JSON lines are what the Cloud Logging agent of GKE, Cloud Run and GCE collects from stdout.
-Run on a laptop they only print; the spans reach the Telemetry API either way.
+Call `tracer_provider.shutdown()` and, in development mode, `logger_provider.shutdown()` before the process ends. They export what is still queued, and block the calling thread, so they need the multi-threaded Tokio runtime that `#[tokio::main]` starts.
 
-Call `tracer_provider.shutdown()` before the process ends. It exports the spans still queued, and blocks the calling thread, so it needs the multi-threaded Tokio runtime that `#[tokio::main]` starts.
+The development mode writes every event to the terminal and over OTLP. A service picks one sink.
 
 The credentials are found by ADC and need the role described in [Authentication](./authentication.md).
 
@@ -47,7 +53,8 @@ All examples are in the [examples](https://github.com/abdolence/gcloud-observabi
 Each example names its features in its header comment and in `required-features` in `Cargo.toml`:
 
 ```bash
-PROJECT_ID=<your-google-project-id> cargo run --example quickstart --features logs,otlp
+PROJECT_ID=<your-google-project-id> cargo run --example quickstart --features logs-otlp
+PROJECT_ID=<your-google-project-id> APP_MODE=production cargo run --example quickstart --features logs-otlp
 ```
 
 | Goal                        | Examples                                                            |

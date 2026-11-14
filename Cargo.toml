@@ -73,7 +73,7 @@ opentelemetry-otlp = { version = "0.33.1", default-features = false, features = 
 [[example]]
 name = "quickstart"
 path = "examples/quickstart.rs"
-required-features = ["logs", "otlp"]
+required-features = ["logs-otlp"]
 
 [[example]]
 name = "logging-dev-and-prod"
