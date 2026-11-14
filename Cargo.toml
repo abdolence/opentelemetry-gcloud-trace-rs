@@ -56,7 +56,7 @@ logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json",
 logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
 trace-api = ["gcloud-sdk/google-devtools-cloudtrace-v2"]
 otlp = ["dep:opentelemetry-otlp", "dep:tokio"]
-logs-otlp = ["logs", "otlp", "opentelemetry-otlp/logs", "opentelemetry_sdk/experimental_logs_batch_log_processor_with_async_runtime"]
+logs-otlp = ["logs", "otlp", "opentelemetry-otlp/logs"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
