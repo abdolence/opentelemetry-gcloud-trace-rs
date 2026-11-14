@@ -1,40 +1,12 @@
 #![cfg(feature = "logs")]
 
+mod common;
+
+use common::SharedBuffer;
 use gcloud_observability::logs::{install_panic_hook, GcpCloudLoggingLayerBuilder, ServiceContext};
-use serde_json::Value;
-use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::Registry;
-
-#[derive(Clone, Default)]
-struct SharedBuffer(Arc<Mutex<Vec<u8>>>);
-
-struct SharedBufferWriter(Arc<Mutex<Vec<u8>>>);
-
-impl Write for SharedBufferWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests")
-            .extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> MakeWriter<'a> for SharedBuffer {
-    type Writer = SharedBufferWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        SharedBufferWriter(self.0.clone())
-    }
-}
 
 static PREVIOUS_HOOK_CALLS: AtomicUsize = AtomicUsize::new(0);
 
@@ -62,15 +34,7 @@ fn panic_emits_one_error_event_and_calls_the_previous_hook() {
 
     assert!(result.is_err());
     assert_eq!(PREVIOUS_HOOK_CALLS.load(Ordering::SeqCst), 1);
-    let lines: Vec<Value> = String::from_utf8_lossy(
-        &buffer
-            .0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests"),
-    )
-    .lines()
-    .map(|line| serde_json::from_str(line).expect("sink writes one JSON object per line"))
-    .collect();
+    let lines = buffer.lines();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0]["severity"], "ERROR");
     assert!(lines[0]["message"]

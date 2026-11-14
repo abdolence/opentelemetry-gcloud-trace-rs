@@ -1,56 +1,15 @@
 #![cfg(feature = "logs")]
 
+mod common;
+
+use common::SharedBuffer;
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_sdk::trace::{
     InMemorySpanExporter, Sampler, SdkTracerProvider, SimpleSpanProcessor,
 };
-use serde_json::Value;
-use std::io::Write;
-use std::sync::{Arc, Mutex};
-use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::Registry;
-
-#[derive(Clone, Default)]
-struct SharedBuffer(Arc<Mutex<Vec<u8>>>);
-
-impl SharedBuffer {
-    fn lines(&self) -> Vec<Value> {
-        let buffer = self
-            .0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests");
-        String::from_utf8_lossy(&buffer)
-            .lines()
-            .map(|line| serde_json::from_str(line).expect("sink writes one JSON object per line"))
-            .collect()
-    }
-}
-
-struct SharedBufferWriter(Arc<Mutex<Vec<u8>>>);
-
-impl Write for SharedBufferWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0
-            .lock()
-            .expect("buffer mutex is never poisoned in these tests")
-            .extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> MakeWriter<'a> for SharedBuffer {
-    type Writer = SharedBufferWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        SharedBufferWriter(self.0.clone())
-    }
-}
 
 #[test]
 fn severity_matches_level_for_each_tracing_level() {

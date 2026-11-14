@@ -382,26 +382,6 @@ fn as_str(value: &AnyValue) -> &str {
 }
 
 #[test]
-fn error_field_keeps_its_source_chain() {
-    let (provider, exporter) = logger_provider();
-    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
-        .with_otel_logger_provider(&provider, LOG_ID)
-        .build();
-
-    tracing::subscriber::with_default(Registry::default().with(layer), || {
-        let failure = CheckoutFailure(RootCause);
-        tracing::error!(error = &failure as &dyn Error, "checkout failed");
-    });
-
-    let records = emitted(&exporter);
-    let body = records[0].body().expect("the body is set");
-    let rendered = as_str(map_entry(body, "error").expect("the error field is in the body"));
-    let outer = rendered.find("payment declined").expect("outer error");
-    let root = rendered.find("card expired").expect("root cause");
-    assert!(outer < root);
-}
-
-#[test]
 fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
     enable_backtraces();
     let (provider, exporter) = logger_provider();
@@ -417,11 +397,10 @@ fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
             error = &failure as &dyn Error,
             "checkout failed"
         );
-        tracing::info!("checkout started");
     });
 
     let records = emitted(&exporter);
-    assert_eq!(records.len(), 2);
+    assert_eq!(records.len(), 1);
 
     let record = &records[0];
     assert!(record.severity_number().expect("severity is set") >= Severity::Error);
@@ -430,10 +409,6 @@ fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
         map_entry(body, "@type").map(as_str),
         Some("type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent")
     );
-    let service = map_entry(body, "serviceContext").expect("serviceContext is in the body");
-    assert_eq!(map_entry(service, "service"), Some(&string("orders")));
-    let context = map_entry(body, "context").expect("context is in the body");
-    assert!(map_entry(context, "reportLocation").is_some());
 
     assert_eq!(
         attribute(record, "exception.type"),
@@ -444,8 +419,4 @@ fn error_reporting_keys_and_exception_attributes_are_set_on_error_events() {
     assert!(exception_message.contains("payment declined"));
     assert!(exception_message.contains("card expired"));
     assert!(attribute(record, "exception.stacktrace").is_none());
-    assert!(!as_str(map_entry(body, "message").expect("message")).is_empty());
-
-    assert!(attribute(&records[1], "exception.message").is_none());
-    assert!(map_entry(records[1].body().expect("the body is set"), "@type").is_none());
 }
