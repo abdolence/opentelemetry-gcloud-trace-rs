@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .build(),
     );
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
-    let tracer = gcp_trace_exporter.install(&tracer_provider).await?;
+    let tracer = gcp_trace_exporter.install(&tracer_provider);
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
     // `Option<Layer>` implements `Layer`, so both sinks can be built from one

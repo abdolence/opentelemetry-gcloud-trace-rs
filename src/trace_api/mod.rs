@@ -8,10 +8,9 @@ pub use exporter::GcpCloudTraceExporter;
 
 use crate::common;
 use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
-use opentelemetry_sdk::error::OTelSdkError;
 use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
-use opentelemetry_sdk::trace::{SdkTracerProvider, SpanExporter, TracerProviderBuilder};
+use opentelemetry_sdk::trace::{SdkTracerProvider, SpanExporter, Tracer, TracerProviderBuilder};
 use opentelemetry_sdk::Resource;
 use rsb_derive::*;
 use std::time::Duration;
@@ -68,11 +67,8 @@ impl GcpCloudTraceExporterBuilder {
         common::batch_span_processor(exporter, self.max_export_timeout)
     }
 
-    pub async fn install(
-        self,
-        provider: &SdkTracerProvider,
-    ) -> Result<opentelemetry_sdk::trace::Tracer, OTelSdkError> {
-        Ok(common::tracer(provider))
+    pub fn install(&self, provider: &SdkTracerProvider) -> Tracer {
+        common::tracer(provider)
     }
 }
 
