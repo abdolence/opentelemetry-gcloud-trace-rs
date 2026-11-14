@@ -6,7 +6,7 @@
 //! sink converts the same map into a `LogEntry`, so the field mapping below
 //! exists once.
 
-use super::error_reporting::{ErrorChain, ExceptionDetails, ServiceContext};
+use super::error_reporting::{error_chain, ExceptionDetails, ServiceContext};
 use opentelemetry::trace::{SpanId, TraceId};
 use serde_json::{Map, Value};
 use time::format_description::well_known::Rfc3339;
@@ -160,7 +160,7 @@ struct CollectedFields {
     operation: Map<String, Value>,
     insert_id: Option<Value>,
     user_fields: Map<String, Value>,
-    first_error: Option<ErrorChain>,
+    first_error_chain: Option<Vec<String>>,
 }
 
 impl CollectedFields {
@@ -207,9 +207,9 @@ impl Visit for CollectedFields {
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        let chain = ErrorChain::new(value);
-        self.insert_named(field.name(), Value::from(chain.to_string()));
-        self.first_error.get_or_insert(chain);
+        let chain = error_chain(value);
+        self.insert_named(field.name(), Value::from(chain.join("\nCaused by: ")));
+        self.first_error_chain.get_or_insert(chain);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
@@ -323,7 +323,7 @@ pub(crate) fn build_log_record(
 
     let exception = error_reporting
         .filter(|_| is_error_severity(severity))
-        .map(|service| service.report(&mut map, metadata, fields.first_error.as_ref()));
+        .map(|service| service.report(&mut map, metadata, fields.first_error_chain.as_deref()));
 
     EventRecord {
         fields: map,

@@ -13,7 +13,6 @@
 use serde_json::{Map, Value};
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::error::Error;
-use std::fmt;
 use tracing::Metadata;
 
 use super::format::{as_i64, KEY_HTTP_REQUEST, KEY_MESSAGE};
@@ -75,22 +74,22 @@ impl ServiceContext {
     /// Turns `record`, built for an event at ERROR severity or above, into an Error Reporting
     /// event, and returns the exception details the OTLP sink sends as attributes.
     ///
-    /// `error` is the first `&dyn Error` field of the event. The backtrace is captured here, at
-    /// the event site, so it costs nothing unless `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE`
-    /// enables it.
+    /// `error_chain` is the texts of the event's first `&dyn Error` field, outermost first.
+    /// The backtrace is captured here, at the event site, so it costs nothing unless
+    /// `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE` enables it.
     pub(crate) fn report(
         &self,
         record: &mut Map<String, Value>,
         metadata: &Metadata<'_>,
-        error: Option<&ErrorChain>,
+        error_chain: Option<&[String]>,
     ) -> ExceptionDetails {
         let event_message = match record.get(KEY_MESSAGE) {
             Some(Value::String(message)) => message.clone(),
             Some(other) => other.to_string(),
             None => String::new(),
         };
-        let exception_message = match error {
-            Some(chain) => chain.on_one_line(),
+        let exception_message = match error_chain {
+            Some(chain) => chain.join(": "),
             None => event_message.clone(),
         };
         let stacktrace = capture_backtrace();
@@ -99,7 +98,7 @@ impl ServiceContext {
         // The chain stays on the header line: Error Reporting keys a group on the cause a
         // `Caused by:` line names, so unrelated errors that share a root cause would be one
         // group.
-        let mut message = match error {
+        let mut message = match error_chain {
             Some(_) => format!("{event_message}: {exception_message}"),
             None => event_message,
         };
@@ -206,40 +205,12 @@ pub(crate) struct ExceptionDetails {
     pub(crate) message: String,
 }
 
-/// An error and its `source()` chain, flattened to text. `tracing` hands an event field only
-/// as `&dyn Error`, so the chain is read while the event is recorded.
-pub(crate) struct ErrorChain {
-    display: String,
-    causes: Vec<String>,
-}
-
-impl ErrorChain {
-    pub(crate) fn new(error: &(dyn Error + 'static)) -> Self {
-        Self {
-            display: error.to_string(),
-            causes: std::iter::successors(error.source(), |cause| (*cause).source())
-                .map(ToString::to_string)
-                .collect(),
-        }
-    }
-
-    /// `outer: middle: root`.
-    fn on_one_line(&self) -> String {
-        std::iter::once(self.display.as_str())
-            .chain(self.causes.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(": ")
-    }
-}
-
-impl fmt::Display for ErrorChain {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.display)?;
-        for cause in &self.causes {
-            write!(formatter, "\nCaused by: {cause}")?;
-        }
-        Ok(())
-    }
+/// `error` and its `source()` chain as text, outermost first. `tracing` hands an event field
+/// only as `&dyn Error`, so the chain is read while the event is recorded.
+pub(crate) fn error_chain(error: &(dyn Error + 'static)) -> Vec<String> {
+    std::iter::successors(Some(error), |cause| (*cause).source())
+        .map(ToString::to_string)
+        .collect()
 }
 
 /// Emits one `tracing` error event for every panic, then calls the hook that was installed
