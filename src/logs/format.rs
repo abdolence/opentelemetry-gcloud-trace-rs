@@ -50,6 +50,17 @@ pub(crate) struct TraceCorrelation {
     pub(crate) sampled: bool,
 }
 
+/// Accepts both the JSON number and the decimal string proto3 uses for 64-bit
+/// integers, which exceed what a JSON number can hold exactly.
+#[cfg(any(feature = "logs-api", feature = "logs-otlp"))]
+pub(crate) fn as_i64(value: &Value) -> Option<i64> {
+    match value {
+        Value::Number(number) => number.as_i64(),
+        Value::String(raw) => raw.trim().parse().ok(),
+        _ => None,
+    }
+}
+
 fn level_severity(level: &Level) -> &'static str {
     match *level {
         Level::ERROR => "ERROR",

@@ -44,9 +44,13 @@ pub(crate) fn batch_span_processor(
 
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
 pub(crate) fn tracer(provider: &SdkTracerProvider) -> Tracer {
-    let scope = InstrumentationScope::builder("gcloud-observability")
+    provider.tracer_with_scope(instrumentation_scope())
+}
+
+#[cfg(any(feature = "trace-api", feature = "otlp"))]
+pub(crate) fn instrumentation_scope() -> InstrumentationScope {
+    InstrumentationScope::builder("gcloud-observability")
         .with_version(env!("CARGO_PKG_VERSION"))
         .with_schema_url("https://opentelemetry.io/schemas/1.23.0")
-        .build();
-    provider.tracer_with_scope(scope)
+        .build()
 }

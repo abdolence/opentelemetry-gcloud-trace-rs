@@ -8,8 +8,8 @@
 //! member should cost the reader a typed field, never the value itself.
 
 use crate::logs::format::{
-    KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION, KEY_SEVERITY, KEY_SOURCE_LOCATION,
-    KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
+    as_i64, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION, KEY_SEVERITY,
+    KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
 };
 use gcloud_sdk::google::logging::r#type::{HttpRequest, LogSeverity};
 use gcloud_sdk::google::logging::v2::{
@@ -103,16 +103,6 @@ where
 fn as_string(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
-        _ => None,
-    }
-}
-
-/// Accepts both the JSON number and the decimal string proto3 uses for 64-bit
-/// integers, which exceed what a JSON number can hold exactly.
-fn as_i64(value: &Value) -> Option<i64> {
-    match value {
-        Value::Number(number) => number.as_i64(),
-        Value::String(raw) => raw.trim().parse().ok(),
         _ => None,
     }
 }

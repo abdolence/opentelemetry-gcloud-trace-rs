@@ -1,4 +1,4 @@
-//! A [`tracing_subscriber::Layer`] that writes structured JSON log lines for
+//! A [`tracing_subscriber::Layer`] that writes structured log entries for
 //! Google Cloud Logging, correlated to Cloud Trace.
 //!
 //! Correlation reads the span context that `tracing-opentelemetry`'s layer
@@ -26,10 +26,12 @@
 //!     .with(log_layer);
 //! ```
 //!
-//! Two sinks are available and exactly one is chosen when the layer is built:
+//! Three sinks are available and exactly one is chosen when the layer is built:
 //! JSON lines to a writer (default stdout, for hosts whose logging agent
-//! collects them), or the Cloud Logging API under the `logs-api` feature (for
-//! hosts with no agent). [`GcpCloudLoggingLayer`] holds its sink behind a
+//! collects them), the Cloud Logging API under the `logs-api` feature (for
+//! hosts with no agent), or an OpenTelemetry logger provider under the
+//! `logs-otlp` feature, which exports to the Google Cloud Telemetry API.
+//! [`GcpCloudLoggingLayer`] holds its sink behind a
 //! private enum rather than a type parameter, so callers compose subscribers
 //! the same way regardless of which sink a layer was built with.
 
@@ -37,9 +39,14 @@
 mod api;
 mod format;
 mod json;
+#[cfg(feature = "logs-otlp")]
+mod otlp;
 
 #[cfg(feature = "logs-api")]
 pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource};
+
+#[cfg(feature = "logs-otlp")]
+pub use otlp::OtlpSink;
 
 use crate::errors::GcloudObservabilityResult;
 use json::JsonSink;
@@ -56,15 +63,18 @@ enum LogSink {
     Json(JsonSink),
     #[cfg(feature = "logs-api")]
     CloudLoggingApi(api::ApiSink),
+    #[cfg(feature = "logs-otlp")]
+    Otlp(OtlpSink),
 }
 
 /// Builds a [`GcpCloudLoggingLayer`].
 ///
-/// `W` is the sink the layer is built for, and each sink has its own build
-/// method: [`Self::build`] where `W` is a `MakeWriter` for JSON lines, and
-/// `build_async` where it is a `GcpCloudLoggingApiConfig` (feature
-/// `logs-api`). A builder therefore becomes exactly one sink, which the
-/// compiler checks rather than a runtime test.
+/// `W` is the sink the layer is built for: a `MakeWriter` for JSON lines, a
+/// `GcpCloudLoggingApiConfig` (feature `logs-api`) or an [`OtlpSink`] (feature
+/// `logs-otlp`). Each has its own build method, `build` for JSON lines and
+/// OpenTelemetry, `build_async` for the Cloud Logging API, so a builder
+/// becomes exactly one sink, which the compiler checks rather than a runtime
+/// test.
 pub struct GcpCloudLoggingLayerBuilder<W = fn() -> std::io::Stdout> {
     project_id: String,
     with_source_location: bool,
@@ -122,6 +132,29 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
             make_writer: config,
         }
     }
+
+    /// Switches the layer to send entries through an OpenTelemetry logger
+    /// provider, normally the one
+    /// [`GcpOtlpExporterBuilder::create_logger_provider`](crate::otlp::GcpOtlpExporterBuilder::create_logger_provider)
+    /// builds for the Google Cloud Telemetry API. `log_id` names the log the entries are
+    /// written to, as for the Cloud Logging API sink. The returned builder has a
+    /// synchronous [`Self::build`], and the caller flushes and shuts the provider down.
+    #[cfg(feature = "logs-otlp")]
+    pub fn with_otel_logger_provider(
+        self,
+        provider: &opentelemetry_sdk::logs::SdkLoggerProvider,
+        log_id: impl Into<String>,
+    ) -> GcpCloudLoggingLayerBuilder<OtlpSink> {
+        use opentelemetry::logs::LoggerProvider;
+        GcpCloudLoggingLayerBuilder {
+            project_id: self.project_id,
+            with_source_location: self.with_source_location,
+            make_writer: OtlpSink::new(
+                provider.logger_with_scope(crate::common::instrumentation_scope()),
+                log_id.into(),
+            ),
+        }
+    }
 }
 
 #[cfg(feature = "logs-api")]
@@ -155,6 +188,21 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
     }
 }
 
+#[cfg(feature = "logs-otlp")]
+impl GcpCloudLoggingLayerBuilder<OtlpSink> {
+    /// Builds the layer. Register it on a subscriber after the
+    /// `tracing-opentelemetry` layer to get trace correlation.
+    pub fn build(self) -> GcpCloudLoggingLayer {
+        GcpCloudLoggingLayer {
+            project_id: self.project_id,
+            with_source_location: self.with_source_location,
+            sink: LogSink::Otlp(self.make_writer),
+            dispatch: OnceLock::new(),
+            missing_otel_layer_warned: Once::new(),
+        }
+    }
+}
+
 impl<W> GcpCloudLoggingLayerBuilder<W>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
@@ -173,7 +221,7 @@ where
 }
 
 /// A [`tracing_subscriber::Layer`] that turns every event into one Cloud
-/// Logging structured JSON line.
+/// Logging entry.
 pub struct GcpCloudLoggingLayer {
     project_id: String,
     with_source_location: bool,
@@ -226,6 +274,16 @@ where
     }
 
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
+        // The exporter's own export loop runs in a suppressed scope, and the tonic and hyper
+        // events it emits would otherwise come back through this layer as log records to
+        // export. The SDK logger drops them too, but only after the record has been built.
+        #[cfg(feature = "logs-otlp")]
+        if matches!(self.sink, LogSink::Otlp(_))
+            && opentelemetry::Context::is_current_telemetry_suppressed()
+        {
+            return;
+        }
+
         // `get_otel_context` locks span extensions internally, so the span id
         // is copied out and the `SpanRef` borrow is dropped before calling it
         // - holding the borrow across the call risks a deadlock.
@@ -299,6 +357,8 @@ where
             LogSink::Json(sink) => sink.write(&record, event.metadata()),
             #[cfg(feature = "logs-api")]
             LogSink::CloudLoggingApi(sink) => sink.send(record),
+            #[cfg(feature = "logs-otlp")]
+            LogSink::Otlp(sink) => sink.send(record, correlation.as_ref()),
         }
     }
 }
