@@ -8,8 +8,9 @@
 
 use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::{
-    as_i64, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
-    KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
+    as_i64, duration_seconds, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS,
+    KEY_OPERATION, KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE,
+    KEY_TRACE_SAMPLED,
 };
 use opentelemetry::logs::{AnyValue, LogRecord, Severity};
 use opentelemetry::trace::TraceFlags;
@@ -26,6 +27,8 @@ const ATTRIBUTE_LOG_NAME: &str = "gcp.log.name";
 const ATTRIBUTE_INSERT_ID: &str = "gcp.insert_id";
 /// `LogEntry.httpRequest`, as a nested map of the proto's JSON member names.
 const ATTRIBUTE_HTTP_REQUEST: &str = "gcp.http_request";
+/// `HttpRequest.latency` member name.
+const KEY_LATENCY: &str = "latency";
 /// `LogEntry.operation`, as a nested map; flattened names are not read.
 const ATTRIBUTE_OPERATION: &str = "gcp.operation";
 /// `LogEntry.sourceLocation.file`.
@@ -90,8 +93,24 @@ pub(crate) fn populate<R: LogRecord>(
             log_record.add_attribute(ATTRIBUTE_SOURCE_FUNCTION, function.to_string());
         }
     }
-    if let Some(Value::Object(request)) = record.remove(KEY_HTTP_REQUEST) {
-        log_record.add_attribute(ATTRIBUTE_HTTP_REQUEST, any_map(request));
+    if let Some(Value::Object(mut request)) = record.remove(KEY_HTTP_REQUEST) {
+        // The Telemetry API reads `latency` as a number of seconds and rejects the whole log
+        // record for a Duration string such as `125ms`.
+        if let Some(latency) = request.remove(KEY_LATENCY) {
+            match duration_seconds(&latency) {
+                Some(seconds) => {
+                    request.insert(KEY_LATENCY.to_string(), Value::from(seconds));
+                }
+                None => {
+                    let mut unmapped = Map::new();
+                    unmapped.insert(KEY_LATENCY.to_string(), latency);
+                    record.insert(KEY_HTTP_REQUEST.to_string(), Value::Object(unmapped));
+                }
+            }
+        }
+        if !request.is_empty() {
+            log_record.add_attribute(ATTRIBUTE_HTTP_REQUEST, any_map(request));
+        }
     }
     if let Some(Value::Object(operation)) = record.remove(KEY_OPERATION) {
         log_record.add_attribute(ATTRIBUTE_OPERATION, any_map(operation));

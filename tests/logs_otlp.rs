@@ -182,6 +182,37 @@ fn http_request_operation_source_location_labels_and_insert_id_use_the_attribute
 }
 
 #[test]
+fn http_request_latency_is_sent_as_seconds() {
+    let (provider, exporter) = logger_provider();
+    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_otel_logger_provider(&provider, LOG_ID)
+        .build();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::info!("http_request.latency" = "125ms", "slow request");
+        tracing::info!("http_request.latency" = "not a duration", "odd request");
+    });
+
+    let records = emitted(&exporter);
+    let http_request = attribute(&records[0], "gcp.http_request").expect("httpRequest is set");
+    assert_eq!(
+        map_entry(http_request, "latency"),
+        Some(&AnyValue::Double(0.125))
+    );
+    // A value the typed field cannot hold stays readable in the body rather than getting the
+    // whole record rejected.
+    assert!(attribute(&records[1], "gcp.http_request").is_none());
+    let body = records[1].body().expect("the body is set");
+    assert_eq!(
+        map_entry(
+            map_entry(body, "httpRequest").expect("kept in the body"),
+            "latency"
+        ),
+        Some(&string("not a duration"))
+    );
+}
+
+#[test]
 fn body_carries_the_message_target_and_user_fields() {
     let (provider, exporter) = logger_provider();
     let layer = GcpCloudLoggingLayerBuilder::new("test-project")

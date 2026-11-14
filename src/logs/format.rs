@@ -62,6 +62,34 @@ pub(crate) fn as_i64(value: &Value) -> Option<i64> {
     }
 }
 
+/// A latency as seconds, from a JSON number of seconds or a Duration string with a unit suffix
+/// such as `125ms`. The suffixes are tried longest first so `ms` is not read as `s`.
+#[cfg(any(feature = "logs-api", feature = "logs-otlp"))]
+pub(crate) fn duration_seconds(value: &Value) -> Option<f64> {
+    const UNITS: [(&str, f64); 7] = [
+        ("ns", 1e-9),
+        ("us", 1e-6),
+        ("\u{b5}s", 1e-6),
+        ("ms", 1e-3),
+        ("s", 1.0),
+        ("m", 60.0),
+        ("h", 3600.0),
+    ];
+
+    let seconds = match value {
+        Value::Number(number) => number.as_f64()?,
+        Value::String(raw) => {
+            let raw = raw.trim();
+            UNITS.iter().find_map(|(suffix, scale)| {
+                let number = raw.strip_suffix(suffix)?;
+                Some(number.trim().parse::<f64>().ok()? * scale)
+            })?
+        }
+        _ => return None,
+    };
+    seconds.is_finite().then_some(seconds)
+}
+
 fn level_severity(level: &Level) -> &'static str {
     match *level {
         Level::ERROR => "ERROR",

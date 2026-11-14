@@ -8,8 +8,8 @@
 //! member should cost the reader a typed field, never the value itself.
 
 use crate::logs::format::{
-    as_i64, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION, KEY_SEVERITY,
-    KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
+    as_i64, duration_seconds, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
+    KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
 };
 use gcloud_sdk::google::logging::r#type::{HttpRequest, LogSeverity};
 use gcloud_sdk::google::logging::v2::{
@@ -203,34 +203,8 @@ fn assign<T>(field: &mut T, parsed: Option<T>) -> bool {
     }
 }
 
-/// Google writes `HttpRequest.latency` as a Duration string; the suffixes are
-/// tried longest first so `ms` is not read as `s`.
 fn parse_duration(value: &Value) -> Option<prost_types::Duration> {
-    const UNITS: [(&str, f64); 7] = [
-        ("ns", 1e-9),
-        ("us", 1e-6),
-        ("\u{b5}s", 1e-6),
-        ("ms", 1e-3),
-        ("s", 1.0),
-        ("m", 60.0),
-        ("h", 3600.0),
-    ];
-
-    let seconds = match value {
-        Value::Number(number) => number.as_f64()?,
-        Value::String(raw) => {
-            let raw = raw.trim();
-            UNITS.iter().find_map(|(suffix, scale)| {
-                let number = raw.strip_suffix(suffix)?;
-                Some(number.trim().parse::<f64>().ok()? * scale)
-            })?
-        }
-        _ => return None,
-    };
-    if !seconds.is_finite() {
-        return None;
-    }
-
+    let seconds = duration_seconds(value)?;
     let total_nanos = (seconds * 1e9).round();
     let whole_seconds = (total_nanos / 1e9).trunc();
     Some(prost_types::Duration {
