@@ -520,4 +520,19 @@ mod tests {
         }));
         assert_eq!(nested, expected);
     }
+
+    #[test]
+    fn error_reporting_keys_stay_in_the_payload() {
+        let entry = build_log_entry(record(json!({
+            "@type": "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+            "serviceContext": { "service": "orders" },
+            "context": { "reportLocation": { "filePath": "src/main.rs", "lineNumber": 7 } },
+            "message": "checkout failed",
+        })));
+        let payload = payload(&entry);
+        for key in ["@type", "serviceContext", "context", "message"] {
+            assert!(payload.fields.contains_key(key), "{key} left the payload");
+        }
+        assert!(entry.http_request.is_none());
+    }
 }

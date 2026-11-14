@@ -4,6 +4,7 @@
 
 mod record;
 
+use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::TraceCorrelation;
 use opentelemetry::logs::Logger;
 use opentelemetry_sdk::logs::SdkLogger;
@@ -22,9 +23,20 @@ impl OtlpSink {
         Self { logger, log_id }
     }
 
-    pub(crate) fn send(&self, record: Map<String, Value>, correlation: Option<&TraceCorrelation>) {
+    pub(crate) fn send(
+        &self,
+        record: Map<String, Value>,
+        exception: Option<&ExceptionDetails>,
+        correlation: Option<&TraceCorrelation>,
+    ) {
         let mut log_record = self.logger.create_log_record();
-        record::populate(&mut log_record, record, correlation, &self.log_id);
+        record::populate(
+            &mut log_record,
+            record,
+            exception,
+            correlation,
+            &self.log_id,
+        );
         self.logger.emit(log_record);
     }
 }

@@ -6,6 +6,7 @@
 //! Each key below cites the row of that page it follows. What the page maps to no typed field
 //! becomes a label, which is why only the record's own user fields go into the body.
 
+use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::{
     as_i64, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
     KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
@@ -33,12 +34,21 @@ const ATTRIBUTE_SOURCE_FILE: &str = "code.file.path";
 const ATTRIBUTE_SOURCE_FUNCTION: &str = "code.function.name";
 /// `LogEntry.sourceLocation.line`.
 const ATTRIBUTE_SOURCE_LINE: &str = "code.line.number";
+/// OpenTelemetry's exception conventions, which Google maps to labels. The stack trace is a
+/// single string here; `tracing-opentelemetry`'s array of the source chain under the same name
+/// is a different thing and is never reused.
+/// <https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/>
+const ATTRIBUTE_EXCEPTION_TYPE: &str = "exception.type";
+const ATTRIBUTE_EXCEPTION_MESSAGE: &str = "exception.message";
+const ATTRIBUTE_EXCEPTION_STACKTRACE: &str = "exception.stacktrace";
 
 /// Fills `log_record` from `record`. `correlation` supplies the trace context as typed ids,
-/// so the trace keys the record carries for the other sinks are dropped.
+/// so the trace keys the record carries for the other sinks are dropped. `exception` is set
+/// for an Error Reporting event.
 pub(crate) fn populate<R: LogRecord>(
     log_record: &mut R,
     mut record: Map<String, Value>,
+    exception: Option<&ExceptionDetails>,
     correlation: Option<&TraceCorrelation>,
     log_id: &str,
 ) {
@@ -92,6 +102,15 @@ pub(crate) fn populate<R: LogRecord>(
         .and_then(Value::as_str)
     {
         log_record.add_attribute(ATTRIBUTE_INSERT_ID, insert_id.to_string());
+    }
+    if let Some(exception) = exception {
+        if let Some(kind) = &exception.kind {
+            log_record.add_attribute(ATTRIBUTE_EXCEPTION_TYPE, kind.clone());
+        }
+        log_record.add_attribute(ATTRIBUTE_EXCEPTION_MESSAGE, exception.message.clone());
+        if let Some(stacktrace) = &exception.stacktrace {
+            log_record.add_attribute(ATTRIBUTE_EXCEPTION_STACKTRACE, stacktrace.clone());
+        }
     }
     // Every attribute that maps to no typed field becomes a label.
     if let Some(Value::Object(labels)) = record.remove(KEY_LABELS) {

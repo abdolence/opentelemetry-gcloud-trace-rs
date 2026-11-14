@@ -6,6 +6,7 @@
 //! sink converts the same map into a `LogEntry`, so the field mapping below
 //! exists once.
 
+use super::error_reporting::{ErrorChain, ExceptionDetails, ServiceContext};
 use opentelemetry::trace::{SpanId, TraceId};
 use serde_json::{Map, Value};
 use time::format_description::well_known::Rfc3339;
@@ -25,6 +26,7 @@ pub(crate) const KEY_LABELS: &str = "logging.googleapis.com/labels";
 pub(crate) const KEY_INSERT_ID: &str = "logging.googleapis.com/insertId";
 pub(crate) const KEY_OPERATION: &str = "logging.googleapis.com/operation";
 pub(crate) const KEY_HTTP_REQUEST: &str = "httpRequest";
+pub(crate) const KEY_MESSAGE: &str = "message";
 
 /// LogSeverity enum names Cloud Logging recognises, used to match a
 /// `severity` event field case-insensitively before falling back to the
@@ -52,7 +54,6 @@ pub(crate) struct TraceCorrelation {
 
 /// Accepts both the JSON number and the decimal string proto3 uses for 64-bit
 /// integers, which exceed what a JSON number can hold exactly.
-#[cfg(any(feature = "logs-api", feature = "logs-otlp"))]
 pub(crate) fn as_i64(value: &Value) -> Option<i64> {
     match value {
         Value::Number(number) => number.as_i64(),
@@ -115,11 +116,12 @@ struct CollectedFields {
     operation: Map<String, Value>,
     insert_id: Option<Value>,
     user_fields: Map<String, Value>,
+    first_error: Option<ErrorChain>,
 }
 
 impl CollectedFields {
     fn insert_named(&mut self, name: &str, value: Value) {
-        if name == "message" {
+        if name == KEY_MESSAGE {
             self.message = Some(value);
         } else if name == "severity" {
             if let Value::String(raw) = value {
@@ -161,7 +163,9 @@ impl Visit for CollectedFields {
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.insert_named(field.name(), Value::from(value.to_string()));
+        let chain = ErrorChain::new(value);
+        self.insert_named(field.name(), Value::from(chain.to_string()));
+        self.first_error.get_or_insert(chain);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
@@ -177,30 +181,42 @@ fn now_rfc3339() -> String {
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }
 
+/// The record built for one event, and what only some sinks use of it.
+pub(crate) struct EventRecord {
+    pub(crate) fields: Map<String, Value>,
+    /// Set for an Error Reporting event; the OTLP sink sends it as attributes.
+    // Read only by the OTLP sink.
+    #[cfg_attr(not(feature = "logs-otlp"), allow(dead_code))]
+    pub(crate) exception: Option<ExceptionDetails>,
+}
+
+/// Whether a severity name is ERROR or above, which is what Error Reporting evaluates.
+fn is_error_severity(severity: &str) -> bool {
+    matches!(severity, "ERROR" | "CRITICAL" | "ALERT" | "EMERGENCY")
+}
+
 /// Assembles the log record for one event. `correlation` is `None` when the
 /// event has no enclosing span, when the enclosing span carries no valid
 /// OpenTelemetry context, or when no OpenTelemetry layer produced one.
+/// `error_reporting` turns an event at ERROR severity or above into an Error
+/// Reporting event.
 pub(crate) fn build_log_record(
     event: &Event<'_>,
     project_id: &str,
     with_source_location: bool,
     correlation: Option<&TraceCorrelation>,
-) -> Map<String, Value> {
+    error_reporting: Option<&ServiceContext>,
+) -> EventRecord {
     let metadata = event.metadata();
     let mut fields = CollectedFields::default();
     event.record(&mut fields);
 
+    let severity = resolve_severity(metadata.level(), fields.severity_override.as_deref());
     let mut map = Map::new();
     map.insert(KEY_TIME.to_string(), Value::from(now_rfc3339()));
+    map.insert(KEY_SEVERITY.to_string(), Value::from(severity));
     map.insert(
-        KEY_SEVERITY.to_string(),
-        Value::from(resolve_severity(
-            metadata.level(),
-            fields.severity_override.as_deref(),
-        )),
-    );
-    map.insert(
-        "message".to_string(),
+        KEY_MESSAGE.to_string(),
         fields
             .message
             .take()
@@ -261,7 +277,14 @@ pub(crate) fn build_log_record(
         map.insert(KEY_INSERT_ID.to_string(), insert_id);
     }
 
-    map
+    let exception = error_reporting
+        .filter(|_| is_error_severity(severity))
+        .map(|service| service.report(&mut map, metadata, fields.first_error.as_ref()));
+
+    EventRecord {
+        fields: map,
+        exception,
+    }
 }
 
 #[cfg(test)]

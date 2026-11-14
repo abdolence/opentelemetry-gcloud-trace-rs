@@ -26,6 +26,13 @@
 //!     .with(log_layer);
 //! ```
 //!
+//! An event field passed as a `&dyn Error` keeps its whole `source()` chain, one `Caused by:`
+//! line per source; `error = %err` and `error = ?err` record only the text they format.
+//! [`GcpCloudLoggingLayerBuilder::with_error_reporting`] makes every event at ERROR severity
+//! or above an event Cloud Error Reporting groups, with the code location, the error chain
+//! and a backtrace in `message`; set `RUST_BACKTRACE=1` or `RUST_LIB_BACKTRACE=1` to capture
+//! the backtrace. [`install_panic_hook`] reports panics the same way.
+//!
 //! Three sinks are available and exactly one is chosen when the layer is built:
 //! JSON lines to a writer (default stdout, for hosts whose logging agent
 //! collects them), the Cloud Logging API under the `logs-api` feature (for
@@ -37,6 +44,7 @@
 
 #[cfg(feature = "logs-api")]
 mod api;
+mod error_reporting;
 mod format;
 mod json;
 #[cfg(feature = "logs-otlp")]
@@ -49,6 +57,7 @@ pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource
 pub use otlp::OtlpSink;
 
 use crate::errors::GcloudObservabilityResult;
+pub use error_reporting::{install_panic_hook, ServiceContext};
 use json::JsonSink;
 use std::sync::{Once, OnceLock};
 use tracing::dispatcher::{Dispatch, WeakDispatch};
@@ -78,6 +87,7 @@ enum LogSink {
 pub struct GcpCloudLoggingLayerBuilder<W = fn() -> std::io::Stdout> {
     project_id: String,
     with_source_location: bool,
+    error_reporting: Option<ServiceContext>,
     make_writer: W,
 }
 
@@ -88,6 +98,7 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
         Self {
             project_id: project_id.into(),
             with_source_location: true,
+            error_reporting: None,
             make_writer: std::io::stdout,
         }
     }
@@ -108,11 +119,30 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
         self
     }
 
+    /// Makes every event at ERROR severity or above (including a `severity` field of
+    /// `critical`, `alert` or `emergency`) a Cloud Error Reporting event for `service`.
+    ///
+    /// The entry gets `@type`, `serviceContext`, `context.reportLocation` from the event's
+    /// code location, and `context.httpRequest` when `http_request.*` fields are present. Its
+    /// `message` is the event message, the error's `Display` and `source()` chain, then the
+    /// backtrace, which is captured only when `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE` enables
+    /// it. Without a backtrace Error Reporting groups by the message and the location.
+    ///
+    /// On the OTLP sink the same keys go in the body, and the `exception.type`,
+    /// `exception.message` and `exception.stacktrace` attributes are added. A `&dyn Error`
+    /// has no type name on stable Rust, so `exception.type` is set from an `exception.type`
+    /// event field when there is one.
+    pub fn with_error_reporting(mut self, service: ServiceContext) -> Self {
+        self.error_reporting = Some(service);
+        self
+    }
+
     /// Sets where JSON lines are written. Defaults to [`std::io::stdout`].
     pub fn with_json_writer<W2>(self, make_writer: W2) -> GcpCloudLoggingLayerBuilder<W2> {
         GcpCloudLoggingLayerBuilder {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
+            error_reporting: self.error_reporting,
             make_writer,
         }
     }
@@ -129,6 +159,7 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
         GcpCloudLoggingLayerBuilder {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
+            error_reporting: self.error_reporting,
             make_writer: config,
         }
     }
@@ -149,6 +180,7 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
         GcpCloudLoggingLayerBuilder {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
+            error_reporting: self.error_reporting,
             make_writer: OtlpSink::new(
                 provider.logger_with_scope(crate::common::instrumentation_scope()),
                 log_id.into(),
@@ -179,6 +211,7 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
             GcpCloudLoggingLayer {
                 project_id: self.project_id,
                 with_source_location: self.with_source_location,
+                error_reporting: self.error_reporting,
                 sink: LogSink::CloudLoggingApi(api_sink),
                 dispatch: OnceLock::new(),
                 missing_otel_layer_warned: Once::new(),
@@ -196,6 +229,7 @@ impl GcpCloudLoggingLayerBuilder<OtlpSink> {
         GcpCloudLoggingLayer {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
+            error_reporting: self.error_reporting,
             sink: LogSink::Otlp(self.make_writer),
             dispatch: OnceLock::new(),
             missing_otel_layer_warned: Once::new(),
@@ -213,6 +247,7 @@ where
         GcpCloudLoggingLayer {
             project_id: self.project_id,
             with_source_location: self.with_source_location,
+            error_reporting: self.error_reporting,
             sink: LogSink::Json(JsonSink::new(self.make_writer)),
             dispatch: OnceLock::new(),
             missing_otel_layer_warned: Once::new(),
@@ -225,6 +260,7 @@ where
 pub struct GcpCloudLoggingLayer {
     project_id: String,
     with_source_location: bool,
+    error_reporting: Option<ServiceContext>,
     sink: LogSink,
     // Captured from `on_register_dispatch`, needed because a nested
     // `tracing::dispatcher::get_default` inside `on_event` is documented to
@@ -351,14 +387,19 @@ where
             &self.project_id,
             self.with_source_location,
             correlation.as_ref(),
+            self.error_reporting.as_ref(),
         );
 
         match &self.sink {
-            LogSink::Json(sink) => sink.write(&record, event.metadata()),
+            LogSink::Json(sink) => sink.write(&record.fields, event.metadata()),
             #[cfg(feature = "logs-api")]
-            LogSink::CloudLoggingApi(sink) => sink.send(record),
+            LogSink::CloudLoggingApi(sink) => sink.send(record.fields),
             #[cfg(feature = "logs-otlp")]
-            LogSink::Otlp(sink) => sink.send(record, correlation.as_ref()),
+            LogSink::Otlp(sink) => sink.send(
+                record.fields,
+                record.exception.as_ref(),
+                correlation.as_ref(),
+            ),
         }
     }
 }
