@@ -110,6 +110,7 @@ The features it needs are in its header and in `required-features` in `Cargo.tom
 
 ## Compatibility matrix
 
+<!-- ANCHOR: compatibility -->
 | gcloud-observability version | opentelemetry version | opentelemetry-otlp | tracing-opentelemetry | gcloud-sdk |
 |------------------------------|-----------------------|--------------------|-----------------------|------------|
 | 0.31                         | 0.33                  | 0.33               | 0.34                  | 0.33       |
@@ -123,6 +124,7 @@ The features it needs are in its header and in `required-features` in `Cargo.tom
 | 0.23                         | 0.31                  | -                  | 0.32                  | 0.29       |
 
 Versions up to 0.30 are published as `opentelemetry-gcloud-trace`.
+<!-- ANCHOR_END: compatibility -->
 
 ## Migrating
 
