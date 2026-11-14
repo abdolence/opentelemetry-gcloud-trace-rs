@@ -23,7 +23,8 @@ const AUTH_HEADERS_REFRESH_INTERVAL: Duration = Duration::from_secs(5);
 /// a background task polls the credentials and publishes their headers when they change,
 /// and each request copies the latest ones. The task runs on the Tokio runtime the
 /// interceptor is created on, and ends when the last clone is dropped. A failed refresh
-/// is logged and keeps the headers published last.
+/// keeps the headers published last; a warning is logged when refreshing starts failing
+/// and another when it recovers.
 #[derive(Clone)]
 pub struct GcpAuthInterceptor {
     headers: watch::Receiver<MetadataMap>,
@@ -88,19 +89,31 @@ async fn keep_current(
     sender: watch::Sender<MetadataMap>,
 ) {
     let refresh = async {
+        let mut failing = false;
         loop {
             tokio::time::sleep(AUTH_HEADERS_REFRESH_INTERVAL).await;
             match auth_headers.headers().await {
-                // Unchanged credentials answer with the map they served last.
-                Ok(headers) if Arc::ptr_eq(&headers, &served) => {}
                 Ok(headers) => {
-                    sender.send_replace(MetadataMap::from_headers(HeaderMap::clone(&headers)));
-                    served = headers;
+                    if failing {
+                        failing = false;
+                        tracing::warn!(
+                            "Refreshing the Google credentials of OTLP exports recovered"
+                        );
+                    }
+                    // Unchanged credentials answer with the map they served last.
+                    if !Arc::ptr_eq(&headers, &served) {
+                        sender.send_replace(MetadataMap::from_headers(HeaderMap::clone(&headers)));
+                        served = headers;
+                    }
                 }
-                Err(error) => tracing::warn!(
-                    %error,
-                    "Refreshing the Google credentials of OTLP exports failed; the last headers stay in use"
-                ),
+                Err(error) if !failing => {
+                    failing = true;
+                    tracing::warn!(
+                        %error,
+                        "Refreshing the Google credentials of OTLP exports failed; the last headers stay in use until it recovers"
+                    );
+                }
+                Err(_) => {}
             }
         }
     };
