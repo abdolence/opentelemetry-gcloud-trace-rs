@@ -74,5 +74,8 @@ pub mod errors;
 #[cfg(feature = "logs")]
 pub mod logs;
 
+#[cfg(feature = "otlp")]
+pub mod otlp;
+
 #[cfg(feature = "trace-api")]
 pub mod trace_api;

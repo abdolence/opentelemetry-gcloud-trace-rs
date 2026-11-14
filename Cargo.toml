@@ -36,7 +36,7 @@ tracing-subscriber = { version = "0.3", features = ["fmt"], optional = true }
 tracing-opentelemetry = { version = "0.34", optional = true }
 serde_json = { version = "1", optional = true }
 time = { version = "0.3", features = ["formatting", "parsing"], optional = true }
-tokio = { version = "1", features = ["sync", "rt", "time"], optional = true }
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"], optional = true }
 
 [features]
 default = ["tls-roots", "logs", "auth-default-crypto"]
@@ -51,6 +51,7 @@ logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json",
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
 logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
 trace-api = ["gcloud-sdk/google-devtools-cloudtrace-v2"]
+otlp = ["dep:tokio"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
