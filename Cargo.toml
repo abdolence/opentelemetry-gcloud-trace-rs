@@ -97,3 +97,13 @@ required-features = ["logs-api", "trace-api"]
 name = "logging-otlp"
 path = "examples/logging/otlp.rs"
 required-features = ["logs-otlp"]
+
+[[example]]
+name = "errors-error-reporting"
+path = "examples/errors/error_reporting.rs"
+required-features = ["logs-api"]
+
+[[example]]
+name = "errors-panic-hook"
+path = "examples/errors/panic_hook.rs"
+required-features = ["logs-api"]
