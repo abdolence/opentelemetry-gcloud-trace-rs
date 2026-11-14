@@ -35,11 +35,24 @@ impl GcpCloudTraceExporterBuilder {
         Ok(Self::new(common::detect_google_project_id().await?))
     }
 
+    /// [`Self::create_provider_from_builder`] over the OpenTelemetry SDK's default builder.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping it
+    /// block the calling thread until the batch task, which runs on the Tokio runtime the
+    /// provider was created on, is done, so on a current-thread runtime they never return.
+    /// Call them on a multi-threaded runtime, or from a thread outside the runtime.
     pub async fn create_provider(&self) -> Result<SdkTracerProvider, GcloudObservabilityError> {
         self.create_provider_from_builder(SdkTracerProvider::builder())
             .await
     }
 
+    /// Adds a batch processor over the Cloud Trace API exporter to `builder`, and
+    /// [`Self::resource`] as the exporter's resource.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping it
+    /// block the calling thread until the batch task, which runs on the Tokio runtime the
+    /// provider was created on, is done, so on a current-thread runtime they never return.
+    /// Call them on a multi-threaded runtime, or from a thread outside the runtime.
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,

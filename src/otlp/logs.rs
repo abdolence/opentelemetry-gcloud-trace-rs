@@ -12,6 +12,15 @@ impl GcpOtlpExporterBuilder {
         Ok(exporter.build()?)
     }
 
+    /// [`Self::create_logger_provider_from_builder`] over a builder with the OpenTelemetry SDK's
+    /// default resource.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping
+    /// it block the calling thread. The processor exports on a thread of its own, but the
+    /// exporter's connection is driven by the Tokio runtime, which needs a thread free to do
+    /// it: on a current-thread runtime they wait out their timeout and the queued records are
+    /// not exported. Call them on a multi-threaded runtime, or from a thread outside the
+    /// runtime.
     pub async fn create_logger_provider(&self) -> GcloudObservabilityResult<SdkLoggerProvider> {
         self.create_logger_provider_from_builder(
             SdkLoggerProvider::builder().with_resource(Resource::builder().build()),
@@ -27,6 +36,13 @@ impl GcpOtlpExporterBuilder {
     /// A `builder` with no resource of its own is not given the OpenTelemetry SDK's default
     /// one, as [`Self::create_logger_provider`] gives; it ends up with only [`Self::resource`]
     /// and `gcp.project_id`.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping
+    /// it block the calling thread. The processor exports on a thread of its own, but the
+    /// exporter's connection is driven by the Tokio runtime, which needs a thread free to do
+    /// it: on a current-thread runtime they wait out their timeout and the queued records are
+    /// not exported. Call them on a multi-threaded runtime, or from a thread outside the
+    /// runtime.
     pub async fn create_logger_provider_from_builder(
         &self,
         builder: LoggerProviderBuilder,

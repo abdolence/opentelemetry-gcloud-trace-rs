@@ -59,6 +59,9 @@ impl ApiSink {
 ///
 /// Cloning shares one task and one queue. Dropping every clone without calling
 /// [`Self::shutdown`] leaves whatever is still queued unwritten.
+///
+/// [`Self::flush`] and [`Self::shutdown`] are async and block no thread, unlike shutting down an
+/// OpenTelemetry provider, so they work on a current-thread runtime.
 #[derive(Clone)]
 pub struct GcpCloudLoggingHandle {
     sender: mpsc::Sender<BatchMessage>,

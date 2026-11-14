@@ -212,6 +212,11 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
     /// written to, as for the Cloud Logging API sink. The returned builder has a
     /// synchronous [`Self::build`], and the caller flushes and shuts the provider down.
     ///
+    /// Flushing and shutting down block the calling thread, and need a Tokio runtime thread
+    /// free to drive the export, so they wait out their timeout without exporting on a
+    /// current-thread runtime. Call them on a multi-threaded runtime, or from a thread outside
+    /// the runtime.
+    ///
     /// Events of the crates the exports travel through are not sent: those whose target is in
     /// `h2`, `hyper`, `hyper_util`, `tonic`, `tower`, `rustls`, `gcloud_sdk`, `opentelemetry`,
     /// `opentelemetry_sdk` or `opentelemetry_otlp`. At DEBUG or TRACE every export would make

@@ -13,6 +13,13 @@ impl GcpOtlpExporterBuilder {
         Ok(exporter.build()?)
     }
 
+    /// [`Self::create_provider_from_builder`] over a builder with the OpenTelemetry SDK's
+    /// default resource.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping it
+    /// block the calling thread until the batch task, which runs on the Tokio runtime the
+    /// provider was created on, is done, so on a current-thread runtime they never return.
+    /// Call them on a multi-threaded runtime, or from a thread outside the runtime.
     pub async fn create_provider(&self) -> GcloudObservabilityResult<SdkTracerProvider> {
         self.create_provider_from_builder(
             SdkTracerProvider::builder().with_resource(Resource::builder().build()),
@@ -26,6 +33,11 @@ impl GcpOtlpExporterBuilder {
     /// A `builder` with no resource of its own is not given the OpenTelemetry SDK's default
     /// one, as [`Self::create_provider`] gives; it ends up with only [`Self::resource`] and
     /// `gcp.project_id`.
+    ///
+    /// Shut the provider down before the process ends. `shutdown`, `force_flush` and dropping it
+    /// block the calling thread until the batch task, which runs on the Tokio runtime the
+    /// provider was created on, is done, so on a current-thread runtime they never return.
+    /// Call them on a multi-threaded runtime, or from a thread outside the runtime.
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,
