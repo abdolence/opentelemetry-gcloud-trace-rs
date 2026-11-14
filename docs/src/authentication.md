@@ -24,7 +24,7 @@ Set it with `gcloud auth application-default set-quota-project <project>` when r
 | `logs-api`                             | Cloud Logging API (`logging.googleapis.com`)       |
 | `trace-api`                            | Cloud Trace API (`cloudtrace.googleapis.com`)      |
 
-Keep the Cloud Trace API enabled when exporting through the Telemetry API as well.
+Keep the Cloud Trace API enabled when exporting through the Telemetry API as well: with it disabled, Google Cloud Observability discards the trace data sent to the Telemetry API. See [Telemetry API traces reference](https://docs.cloud.google.com/stackdriver/docs/reference/telemetry/v1.traces) and the [Cloud Trace release notes](https://docs.cloud.google.com/trace/docs/release-notes).
 
 ## Roles
 
