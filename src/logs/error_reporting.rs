@@ -167,59 +167,7 @@ fn http_request_context(request: &Map<String, Value>) -> Map<String, Value> {
 /// Never forces a capture: that costs milliseconds per event.
 fn capture_backtrace() -> Option<String> {
     let backtrace = Backtrace::capture();
-    (backtrace.status() == BacktraceStatus::Captured)
-        .then(|| trim_leading_frames(&backtrace.to_string()))
-}
-
-/// Symbol prefixes of the frames between the capture and the code that logged: the capture
-/// itself, this crate's layer, the `tracing` dispatch, and, for a panic, the panic machinery.
-const LEADING_FRAME_PREFIXES: [&str; 8] = [
-    "std::",
-    "core::",
-    "alloc::",
-    "__rustc::",
-    "tracing::",
-    "tracing_core::",
-    "tracing_subscriber::",
-    "gcloud_observability::logs::",
-];
-
-/// Drops the leading frames that belong to the capture path and renumbers the rest from zero.
-///
-/// Error Reporting groups errors by the top frames of the trace. Left in, the layer's own
-/// frames would head every trace and put unrelated errors in one group.
-fn trim_leading_frames(backtrace: &str) -> String {
-    let mut frames: Vec<(&str, String)> = Vec::new();
-    for line in backtrace.lines() {
-        let numbered = line
-            .trim_start()
-            .split_once(": ")
-            .filter(|(index, _)| !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit()));
-        match (numbered, frames.last_mut()) {
-            (Some((_, symbol)), _) => frames.push((symbol, String::new())),
-            (None, Some((_, location))) => {
-                location.push('\n');
-                location.push_str(line);
-            }
-            (None, None) => {}
-        }
-    }
-
-    let first_own = frames
-        .iter()
-        .position(|(symbol, _)| {
-            let symbol = symbol.trim_start_matches('<');
-            !LEADING_FRAME_PREFIXES
-                .iter()
-                .any(|prefix| symbol.starts_with(prefix))
-        })
-        .unwrap_or(0);
-    frames[first_own..]
-        .iter()
-        .enumerate()
-        .map(|(index, (symbol, location))| format!("{index:4}: {symbol}{location}"))
-        .collect::<Vec<_>>()
-        .join("\n")
+    (backtrace.status() == BacktraceStatus::Captured).then(|| backtrace.to_string())
 }
 
 /// What the OTLP sink sets as the OpenTelemetry `exception.*` attributes on an error event.
@@ -286,45 +234,4 @@ pub fn install_panic_hook() {
         }
         previous_hook(info);
     }));
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const CAPTURED: &str = "   0: std::backtrace_rs::backtrace::libunwind::trace
-             at /rustc/std/backtrace.rs:117:9
-   1: gcloud_observability::logs::error_reporting::capture_backtrace
-             at ./src/logs/error_reporting.rs:168:21
-   2: <tracing_core::event::Event>::dispatch
-             at /registry/tracing-core/event.rs:35:21
-   3: orders::charge
-             at ./src/orders.rs:54:9
-   4: orders::main
-             at ./src/main.rs:12:5
-   5: std::rt::lang_start
-";
-
-    #[test]
-    fn leading_frames_of_the_capture_path_are_dropped_and_the_rest_renumbered() {
-        let trimmed = trim_leading_frames(CAPTURED);
-        let symbols: Vec<&str> = trimmed
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("at "))
-            .map(|line| line.split_once(": ").expect("a numbered frame").1)
-            .collect();
-        assert_eq!(
-            symbols,
-            ["orders::charge", "orders::main", "std::rt::lang_start"]
-        );
-        assert!(trimmed.starts_with("   0: orders::charge\n"));
-        assert!(trimmed.contains("at ./src/orders.rs:54:9"));
-        assert!(!trimmed.contains("capture_backtrace"));
-    }
-
-    #[test]
-    fn a_trace_made_only_of_internal_frames_is_kept_whole() {
-        let internal = "   0: std::backtrace_rs::trace\n   1: core::ops::function::call_once\n";
-        assert_eq!(trim_leading_frames(internal).lines().count(), 2);
-    }
 }
