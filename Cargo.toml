@@ -92,3 +92,8 @@ required-features = ["logs", "trace-api"]
 name = "logs-api"
 path = "examples/logs/api.rs"
 required-features = ["logs-api", "trace-api"]
+
+[[example]]
+name = "logging-otlp"
+path = "examples/logging/otlp.rs"
+required-features = ["logs-otlp"]
