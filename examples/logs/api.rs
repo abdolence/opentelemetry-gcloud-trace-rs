@@ -1,5 +1,5 @@
 use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
+use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::Registry;

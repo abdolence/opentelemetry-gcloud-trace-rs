@@ -26,7 +26,7 @@ tracing = "0.1"
 opentelemetry = { version = "0.33" }
 opentelemetry_sdk = { version = "0.33", features = ["rt-tokio", "experimental_trace_batch_span_processor_with_async_runtime"] }
 opentelemetry-semantic-conventions = { version = "0.33" }
-gcloud-sdk = { version = "0.33", features = ["google-devtools-cloudtrace-v2"], default-features = false }
+gcloud-sdk = { version = "0.33", default-features = false }
 rvstruct = "0.3"
 rsb_derive = "0.5"
 tokio-stream = "0.1"
@@ -50,6 +50,7 @@ logs = ["dep:tracing-subscriber", "dep:tracing-opentelemetry", "dep:serde_json",
 # `gcloud-sdk/google-logging-v2` already pulls in `google.logging.type` and
 # `google.api`, which carry `LogSeverity`, `HttpRequest` and `MonitoredResource`.
 logs-api = ["logs", "dep:tokio", "gcloud-sdk/google-logging-v2"]
+trace-api = ["gcloud-sdk/google-devtools-cloudtrace-v2"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
@@ -62,13 +63,26 @@ cargo-husky = { version = "1.5", default-features = false, features = ["run-for-
 rustls = "0.23"
 
 [[example]]
-name = "logging-only-api"
-required-features = ["logs-api"]
+name = "trace-api-basic"
+path = "examples/trace_api/basic.rs"
+required-features = ["trace-api"]
 
 [[example]]
-name = "logging"
-required-features = ["logs"]
+name = "trace-api-tracing"
+path = "examples/trace_api/tracing.rs"
+required-features = ["trace-api"]
 
 [[example]]
-name = "traces-and-logs"
-required-features = ["logs-api"]
+name = "trace-api-traces-and-logs"
+path = "examples/trace_api/traces_and_logs.rs"
+required-features = ["trace-api", "logs-api"]
+
+[[example]]
+name = "logs-json"
+path = "examples/logs/json.rs"
+required-features = ["logs", "trace-api"]
+
+[[example]]
+name = "logs-api"
+path = "examples/logs/api.rs"
+required-features = ["logs-api", "trace-api"]

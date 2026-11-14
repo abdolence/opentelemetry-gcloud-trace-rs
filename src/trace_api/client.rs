@@ -1,4 +1,4 @@
-use crate::TraceExportResult;
+use crate::errors::TraceExportResult;
 use gcloud_sdk::google::devtools::cloudtrace::v2::{
     attribute_value as gcp_attribute_value, span as gspan, AttributeValue as GcpAttributeValue,
     BatchWriteSpansRequest, Span as GcpSpan, TruncatableString,

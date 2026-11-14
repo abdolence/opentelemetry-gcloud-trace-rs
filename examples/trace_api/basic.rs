@@ -1,8 +1,6 @@
-use tracing::*;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::Registry;
+use opentelemetry::trace::*;
 
-use opentelemetry_gcloud_trace::*;
+use opentelemetry_gcloud_trace::trace_api::*;
 
 pub fn config_env_var(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|e| format!("{}: {}", name, e))
@@ -26,32 +24,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
-    // Create a tracing layer with the configured tracer
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-    // Use the tracing subscriber `Registry`, or any other subscriber
-    // that impls `LookupSpan`
-    let subscriber = Registry::default().with(telemetry);
-
-    // Trace executed code
-    tracing::subscriber::with_default(subscriber, || {
-        // Spans will be sent to the configured OpenTelemetry exporter
-        let root = span!(tracing::Level::TRACE, "my_app", work_units = 2);
-        let _enter = root.enter();
-
-        let child_span = span!(
-            tracing::Level::TRACE,
-            "my_child",
-            work_units = 2,
-            "http.client_ip" = "42.42.42.42"
+    tracer.in_span("my_parent_work", |cx| {
+        let span = cx.span();
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "http.client_ip",
+            "42.42.42.42",
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "my_test_arr",
+            opentelemetry::Value::Array(vec![42i64, 42i64].into()),
+        ));
+        span.add_event(
+            "test-event",
+            vec![opentelemetry::KeyValue::new(
+                "test_event_attr",
+                "test-event-value",
+            )],
         );
-        child_span.in_scope(|| {
-            info!(
+        tracer.in_span("my_child_work", |cx| {
+            println!(
                 "Do printing, nothing more here. Please check your Google Cloud Trace dashboard."
             );
-        });
 
-        error!("This event will be logged in the root span.");
+            cx.span().add_event(
+                "test-child-event",
+                vec![opentelemetry::KeyValue::new(
+                    "test_event_attr",
+                    "test-event-value",
+                )],
+            );
+        })
     });
 
     tracer_provider.shutdown()?;

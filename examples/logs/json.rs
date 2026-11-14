@@ -5,11 +5,11 @@
 //! JSON stream by eye at a terminal. `APP_MODE` (default `development`)
 //! chooses between them at startup, and exactly one of the two layers is
 //! active at a time. A host with no logging agent should use
-//! `examples/logging-only-api.rs` instead, which writes through the Cloud
+//! `examples/logs/api.rs` instead, which writes through the Cloud
 //! Logging API directly rather than to stdout.
 
 use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
+use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};

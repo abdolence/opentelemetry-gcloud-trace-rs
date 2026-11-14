@@ -36,14 +36,13 @@
 #[cfg(feature = "logs-api")]
 mod api;
 mod format;
-mod json_sink;
+mod json;
 
 #[cfg(feature = "logs-api")]
 pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource};
 
-use crate::errors::{GcloudTraceError, GcloudTraceSystemError};
-use crate::TraceExportResult;
-use json_sink::JsonSink;
+use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
+use json::JsonSink;
 use std::sync::{Once, OnceLock};
 use tracing::dispatcher::{Dispatch, WeakDispatch};
 use tracing::span;
@@ -85,8 +84,8 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
     }
 
     /// Detects the Google Cloud project id from the environment or the
-    /// default service account, the same way [`crate::GcpCloudTraceExporterBuilder::for_default_project_id`]
-    /// does, and starts a builder from it.
+    /// default service account, the same way the exporter builders'
+    /// `for_default_project_id` does, and starts a builder from it.
     pub async fn for_default_project_id() -> TraceExportResult<Self> {
         let detected_project_id = gcloud_sdk::GoogleEnvironment::detect_google_project_id()
             .await

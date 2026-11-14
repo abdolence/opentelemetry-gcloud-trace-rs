@@ -16,7 +16,7 @@ pub(crate) use batcher::{spawn, ApiSink, LogEntrySink};
 /// need not depend on `gcloud-sdk` directly.
 pub use gcloud_sdk::google::api::MonitoredResource;
 
-use crate::TraceExportResult;
+use crate::errors::TraceExportResult;
 use gcloud_sdk::google::logging::v2::logging_service_v2_client::LoggingServiceV2Client;
 use gcloud_sdk::google::logging::v2::WriteLogEntriesRequest;
 use gcloud_sdk::{GoogleApi, GoogleAuthMiddleware};

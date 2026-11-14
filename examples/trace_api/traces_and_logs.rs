@@ -16,18 +16,18 @@
 //! Run with:
 //!
 //! ```sh
-//! PROJECT_ID=your-project cargo run --example traces-and-logs --features logs-api
+//! PROJECT_ID=your-project cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
 //! ```
 //!
 //! or, for the JSON-only variant:
 //!
 //! ```sh
-//! PROJECT_ID=your-project APP_MODE=production cargo run --example traces-and-logs --features logs-api
+//! PROJECT_ID=your-project APP_MODE=production cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
 //! ```
 
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::GcpCloudTraceExporterBuilder;
+use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
 use std::time::Duration;
 use tracing::*;
 use tracing_opentelemetry::OpenTelemetrySpanExt;

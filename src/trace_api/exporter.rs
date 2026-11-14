@@ -1,5 +1,5 @@
-use crate::google_trace_exporter_client::GcpCloudTraceExporterClient;
-use crate::TraceExportResult;
+use super::client::GcpCloudTraceExporterClient;
+use crate::errors::TraceExportResult;
 use futures::future::TryFutureExt;
 use futures::FutureExt;
 use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};

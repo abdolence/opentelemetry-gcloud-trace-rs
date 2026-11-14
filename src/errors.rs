@@ -4,6 +4,8 @@ use rsb_derive::*;
 
 pub type BoxedError = Box<dyn std::error::Error + Send + Sync>;
 
+pub type TraceExportResult<E> = Result<E, GcloudTraceError>;
+
 #[derive(Debug)]
 pub enum GcloudTraceError {
     SystemError(GcloudTraceSystemError),
