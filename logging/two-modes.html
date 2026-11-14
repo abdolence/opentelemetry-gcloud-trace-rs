@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-53d5e387.js";
+            window.path_to_searchindex_js = "../searchindex-4e5de8c4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-8d281217.js"></script>
@@ -179,16 +179,36 @@
                     <main>
                         <h1 id="one-application-two-modes"><a class="header" href="#one-application-two-modes">One application, two modes</a></h1>
 <p>A service usually wants a console layer locally and the JSON layer once deployed, chosen by one <code>match</code> rather than duplicated <code>main</code> functions.
-<code>Option&lt;Layer&gt;</code> implements <code>Layer</code>, so exactly one sink is active per mode, without a boxed trait object or two separate subscriber types:</p>
+<code>APP_MODE</code> (default <code>development</code>) picks the log sink:</p>
+<ul>
+<li><code>development</code>: human-readable console lines;</li>
+<li><code>production</code>: Cloud Logging JSON lines on stdout, which a logging agent on GKE, Cloud Run or GCE collects.</li>
+</ul>
+<p>Spans go to the Telemetry API through OTLP in both modes, and the logging layer reads the span context they attach, so every entry carries its <code>trace</code> and <code>spanId</code>.</p>
+<pre><code class="language-rust ignore">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppMode {
+    Development,
+    Production,
+}
+
+impl AppMode {
+    fn from_env() -&gt; Self {
+        match std::env::var("APP_MODE").as_deref() {
+            Ok("production") =&gt; AppMode::Production,
+            _ =&gt; AppMode::Development,
+        }
+    }
+}</code></pre>
+<p><code>Option&lt;Layer&gt;</code> implements <code>Layer</code>, so each sink is built in the <code>match</code> and composed unconditionally, without a boxed trait object or two separate subscriber types.
+The inactive one is a <code>None</code> that costs nothing:</p>
 <pre><code class="language-rust ignore">    // `Option&lt;Layer&gt;` implements `Layer`, so both sinks are built from one `match` and composed
     // unconditionally below. The inactive one is a `None` that costs nothing.
-    let (console_layer, json_layer) = if production {
-        (
+    let (console_layer, json_layer) = match mode {
+        AppMode::Development =&gt; (Some(tracing_subscriber::fmt::layer()), None),
+        AppMode::Production =&gt; (
             None,
             Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
-        )
-    } else {
-        (Some(tracing_subscriber::fmt::layer()), None)
+        ),
     };
 
     // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
@@ -199,12 +219,11 @@
         .with(console_layer)
         .with(json_layer);
     tracing::subscriber::set_global_default(subscriber)?;</code></pre>
-<p>The inactive layer is a <code>None</code> that costs nothing.
-Trace correlation keeps working with the logging layer wrapped in <code>Option</code>, with no extra step.</p>
-<p>The example reads the mode from <code>APP_MODE</code>, default <code>development</code>:</p>
-<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; APP_MODE=production cargo run --example logging-dev-and-prod --features logs,otlp
+<pre><code class="language-bash">PROJECT_ID=&lt;your-google-project-id&gt; cargo run --example logging-dev-and-prod --features logs,otlp
+PROJECT_ID=&lt;your-google-project-id&gt; APP_MODE=production cargo run --example logging-dev-and-prod --features logs,otlp
 </code></pre>
-<p>Run one sink in production. Writing every event to the terminal and to a network sink, as the development mode of the <code>traces-and-logs-cloud-trace-api</code> example does to show the correlation from a laptop, duplicates entries on a host that collects stdout.</p>
+<p>The production mode writes to stdout only. Run one sink in production: a service that also sends entries over the network duplicates them on a host that collects stdout.</p>
+<p>The <a href="../traces/traces-and-logs.html">traces and logs</a> page has the same switch with the development mode sending its entries over OTLP as well.</p>
 <p>Full example available <a href="https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/dev_and_prod.rs">here</a>.</p>
 
                     </main>

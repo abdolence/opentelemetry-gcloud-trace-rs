@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-53d5e387.js";
+            window.path_to_searchindex_js = "../searchindex-4e5de8c4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-8d281217.js"></script>
@@ -211,13 +211,12 @@ A layer sees only the span context attached by layers registered ahead of it, so
 The logging layer prints one warning to stderr the first time this happens.</p>
 <pre><code class="language-rust ignore">    // `Option&lt;Layer&gt;` implements `Layer`, so both sinks are built from one `match` and composed
     // unconditionally below. The inactive one is a `None` that costs nothing.
-    let (console_layer, json_layer) = if production {
-        (
+    let (console_layer, json_layer) = match mode {
+        AppMode::Development =&gt; (Some(tracing_subscriber::fmt::layer()), None),
+        AppMode::Production =&gt; (
             None,
             Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
-        )
-    } else {
-        (Some(tracing_subscriber::fmt::layer()), None)
+        ),
     };
 
     // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
