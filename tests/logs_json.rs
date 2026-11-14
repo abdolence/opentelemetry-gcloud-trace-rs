@@ -78,6 +78,22 @@ fn severity_matches_level_for_each_tracing_level() {
 }
 
 #[test]
+fn events_of_the_transport_crates_are_written() {
+    let buffer = SharedBuffer::default();
+    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_json_writer(buffer.clone())
+        .build();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::debug!(target: "h2::codec::framed_write", "send frame");
+    });
+
+    let lines = buffer.lines();
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0]["target"], "h2::codec::framed_write");
+}
+
+#[test]
 fn severity_field_overrides_level_case_insensitively() {
     let buffer = SharedBuffer::default();
     let layer = GcpCloudLoggingLayerBuilder::new("test-project")

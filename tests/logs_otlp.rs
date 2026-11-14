@@ -232,18 +232,17 @@ fn body_carries_the_message_target_and_user_fields() {
 }
 
 #[test]
-fn nothing_is_emitted_inside_a_telemetry_suppressed_scope() {
+fn events_of_the_transport_crates_are_not_exported() {
     let (provider, exporter) = logger_provider();
     let layer = GcpCloudLoggingLayerBuilder::new("test-project")
         .with_otel_logger_provider(&provider, LOG_ID)
         .build();
 
     tracing::subscriber::with_default(Registry::default().with(layer), || {
-        {
-            let _suppressed = opentelemetry::Context::enter_telemetry_suppressed_scope();
-            tracing::info!("emitted by the exporter itself");
-        }
-        tracing::info!("emitted by the application");
+        tracing::debug!(target: "h2::codec::framed_write", "send frame");
+        tracing::debug!(target: "hyper_util::client::legacy::connect::http", "connecting");
+        tracing::debug!(target: "opentelemetry_sdk", "export failed");
+        tracing::info!(target: "orders::h2", "emitted by the application");
     });
 
     let records = emitted(&exporter);
