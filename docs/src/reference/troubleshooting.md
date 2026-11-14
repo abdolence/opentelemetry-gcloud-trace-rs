@@ -1,14 +1,5 @@
 # Troubleshooting
 
-## Could not resolve host for telemetry.googleapis.com
-
-DNS filters such as dnscrypt-proxy, Pi-hole and corporate blocklists often block every `telemetry.*` name.
-The example blocklist of dnscrypt-proxy, which OpenWrt enables, is one of them.
-The Telemetry API and its regional endpoints then fail with "could not resolve host".
-
-Allowlist `telemetry.googleapis.com` and `telemetry.*.rep.googleapis.com`.
-The upstream report is [openwrt/packages#31291](https://github.com/openwrt/packages/issues/31291).
-
 ## No trace or span on the log entries
 
 The logging layer is registered before `tracing_opentelemetry::layer()`, or that layer is missing.
