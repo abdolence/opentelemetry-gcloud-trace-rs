@@ -6,6 +6,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # gcloud-sdk needs a TLS root store, so the build without default
+        # features takes the one the default does not.
+        features:
+          - --no-default-features --features logs,tls-webpki-roots
+          - --features trace-api
+          - --features otlp
+          - --features logs-otlp
+          - --all-features
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rs/toolchain@v1
@@ -13,4 +24,6 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
-      - run: cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets ${{ matrix.features }} -- -Dwarnings
+      - run: cargo test ${{ matrix.features }}
