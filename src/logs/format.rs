@@ -62,6 +62,22 @@ pub(crate) fn as_i64(value: &Value) -> Option<i64> {
     }
 }
 
+/// Removes `key` and applies `map`, putting the value back untouched when it does not fit the
+/// typed field it was destined for, so a malformed value still reaches the sink's payload.
+#[cfg(any(feature = "logs-api", feature = "logs-otlp"))]
+pub(crate) fn take<F>(record: &mut Map<String, Value>, key: &str, map: F)
+where
+    F: FnOnce(Value) -> Option<()>,
+{
+    let Some(value) = record.remove(key) else {
+        return;
+    };
+    let restore = value.clone();
+    if map(value).is_none() {
+        record.insert(key.to_string(), restore);
+    }
+}
+
 /// A latency as seconds, from a JSON number of seconds or a Duration string with a unit suffix
 /// such as `125ms`. The suffixes are tried longest first so `ms` is not read as `s`.
 #[cfg(any(feature = "logs-api", feature = "logs-otlp"))]

@@ -8,7 +8,7 @@
 //! member should cost the reader a typed field, never the value itself.
 
 use crate::logs::format::{
-    as_i64, duration_seconds, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
+    as_i64, duration_seconds, take, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION,
     KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
 };
 use gcloud_sdk::google::logging::r#type::{HttpRequest, LogSeverity};
@@ -82,22 +82,6 @@ pub(crate) fn build_log_entry(mut record: Map<String, Value>) -> LogEntry {
             .collect(),
     }));
     entry
-}
-
-/// Removes `key` and applies `map`, putting the value back untouched when it
-/// does not fit the proto field it was destined for, so a malformed value
-/// still reaches Cloud Logging inside the payload.
-fn take<F>(record: &mut Map<String, Value>, key: &str, map: F)
-where
-    F: FnOnce(Value) -> Option<()>,
-{
-    let Some(value) = record.remove(key) else {
-        return;
-    };
-    let restore = value.clone();
-    if map(value).is_none() {
-        record.insert(key.to_string(), restore);
-    }
 }
 
 fn as_string(value: &Value) -> Option<String> {

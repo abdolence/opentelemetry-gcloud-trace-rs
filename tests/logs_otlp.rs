@@ -213,6 +213,94 @@ fn http_request_latency_is_sent_as_seconds() {
 }
 
 #[test]
+fn http_request_members_that_do_not_fit_stay_in_the_body() {
+    let (provider, exporter) = logger_provider();
+    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_otel_logger_provider(&provider, LOG_ID)
+        .build();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::info!(
+            "http_request.request_method" = "GET",
+            "http_request.status" = "200 OK",
+            "http_request.something_else" = 3,
+            "request served"
+        );
+    });
+
+    let records = emitted(&exporter);
+    let http_request = attribute(&records[0], "gcp.http_request").expect("httpRequest is set");
+    assert_eq!(
+        map_entry(http_request, "requestMethod"),
+        Some(&string("GET"))
+    );
+    assert_eq!(map_entry(http_request, "status"), None);
+    assert_eq!(map_entry(http_request, "somethingElse"), None);
+    let kept = map_entry(records[0].body().expect("the body is set"), "httpRequest")
+        .expect("the unmapped members are kept in the body");
+    assert_eq!(map_entry(kept, "status"), Some(&string("200 OK")));
+    assert_eq!(map_entry(kept, "somethingElse"), Some(&AnyValue::Int(3)));
+}
+
+#[test]
+fn operation_members_that_do_not_fit_stay_in_the_body() {
+    let (provider, exporter) = logger_provider();
+    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_otel_logger_provider(&provider, LOG_ID)
+        .build();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::info!(
+            "operation.id" = "op-1",
+            "operation.first" = "yes",
+            "operation.extra" = 1,
+            "step done"
+        );
+    });
+
+    let records = emitted(&exporter);
+    let operation = attribute(&records[0], "gcp.operation").expect("operation is set");
+    assert_eq!(map_entry(operation, "id"), Some(&string("op-1")));
+    assert_eq!(map_entry(operation, "first"), None);
+    let kept = map_entry(
+        records[0].body().expect("the body is set"),
+        "logging.googleapis.com/operation",
+    )
+    .expect("the unmapped members are kept in the body");
+    assert_eq!(map_entry(kept, "first"), Some(&string("yes")));
+    assert_eq!(map_entry(kept, "extra"), Some(&AnyValue::Int(1)));
+}
+
+#[test]
+fn values_that_fit_no_typed_field_stay_in_the_body() {
+    let (provider, exporter) = logger_provider();
+    let layer = GcpCloudLoggingLayerBuilder::new("test-project")
+        .with_otel_logger_provider(&provider, LOG_ID)
+        .build();
+
+    tracing::subscriber::with_default(Registry::default().with(layer), || {
+        tracing::info!(
+            insert_id = 42,
+            time = "yesterday",
+            httpRequest = "GET /orders",
+            "odd fields"
+        );
+    });
+
+    let records = emitted(&exporter);
+    let record = &records[0];
+    assert!(attribute(record, "gcp.insert_id").is_none());
+    assert!(attribute(record, "gcp.http_request").is_none());
+    let body = record.body().expect("the body is set");
+    assert_eq!(
+        map_entry(body, "logging.googleapis.com/insertId"),
+        Some(&AnyValue::Int(42))
+    );
+    assert_eq!(map_entry(body, "time"), Some(&string("yesterday")));
+    assert_eq!(map_entry(body, "httpRequest"), Some(&string("GET /orders")));
+}
+
+#[test]
 fn body_carries_the_message_target_and_user_fields() {
     let (provider, exporter) = logger_provider();
     let layer = GcpCloudLoggingLayerBuilder::new("test-project")

@@ -8,7 +8,7 @@
 
 use crate::logs::error_reporting::ExceptionDetails;
 use crate::logs::format::{
-    as_i64, duration_seconds, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS,
+    as_i64, duration_seconds, take, TraceCorrelation, KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS,
     KEY_OPERATION, KEY_SEVERITY, KEY_SOURCE_LOCATION, KEY_SPAN_ID, KEY_TIME, KEY_TRACE,
     KEY_TRACE_SAMPLED,
 };
@@ -27,8 +27,6 @@ const ATTRIBUTE_LOG_NAME: &str = "gcp.log.name";
 const ATTRIBUTE_INSERT_ID: &str = "gcp.insert_id";
 /// `LogEntry.httpRequest`, as a nested map of the proto's JSON member names.
 const ATTRIBUTE_HTTP_REQUEST: &str = "gcp.http_request";
-/// `HttpRequest.latency` member name.
-const KEY_LATENCY: &str = "latency";
 /// `LogEntry.operation`, as a nested map; flattened names are not read.
 const ATTRIBUTE_OPERATION: &str = "gcp.operation";
 /// `LogEntry.sourceLocation.file`.
@@ -53,18 +51,15 @@ pub(crate) fn populate<R: LogRecord>(
     correlation: Option<&TraceCorrelation>,
     log_id: &str,
 ) {
-    if let Some(timestamp) = record.remove(KEY_TIME).as_ref().and_then(parse_timestamp) {
-        log_record.set_timestamp(timestamp);
-    }
-    if let Some((number, text)) = record
-        .remove(KEY_SEVERITY)
-        .as_ref()
-        .and_then(Value::as_str)
-        .and_then(severity)
-    {
-        log_record.set_severity_number(number);
-        log_record.set_severity_text(text);
-    }
+    take(&mut record, KEY_TIME, |value| {
+        parse_timestamp(&value).map(|timestamp| log_record.set_timestamp(timestamp))
+    });
+    take(&mut record, KEY_SEVERITY, |value| {
+        value.as_str().and_then(severity).map(|(number, text)| {
+            log_record.set_severity_number(number);
+            log_record.set_severity_text(text);
+        })
+    });
 
     record.remove(KEY_TRACE);
     record.remove(KEY_SPAN_ID);
@@ -80,7 +75,10 @@ pub(crate) fn populate<R: LogRecord>(
 
     log_record.add_attribute(ATTRIBUTE_LOG_NAME, log_id.to_string());
 
-    if let Some(Value::Object(location)) = record.remove(KEY_SOURCE_LOCATION) {
+    take(&mut record, KEY_SOURCE_LOCATION, |value| {
+        let Value::Object(location) = value else {
+            return None;
+        };
         if let Some(file) = location.get("file").and_then(Value::as_str) {
             log_record.add_attribute(ATTRIBUTE_SOURCE_FILE, file.to_string());
         }
@@ -90,36 +88,19 @@ pub(crate) fn populate<R: LogRecord>(
         if let Some(function) = location.get("function").and_then(Value::as_str) {
             log_record.add_attribute(ATTRIBUTE_SOURCE_FUNCTION, function.to_string());
         }
+        Some(())
+    });
+    if let Some(request) = take_members(&mut record, KEY_HTTP_REQUEST, http_request_member) {
+        log_record.add_attribute(ATTRIBUTE_HTTP_REQUEST, request);
     }
-    if let Some(Value::Object(mut request)) = record.remove(KEY_HTTP_REQUEST) {
-        // The Telemetry API reads `latency` as a number of seconds and rejects the whole log
-        // record for a Duration string such as `125ms`.
-        if let Some(latency) = request.remove(KEY_LATENCY) {
-            match duration_seconds(&latency) {
-                Some(seconds) => {
-                    request.insert(KEY_LATENCY.to_string(), Value::from(seconds));
-                }
-                None => {
-                    let mut unmapped = Map::new();
-                    unmapped.insert(KEY_LATENCY.to_string(), latency);
-                    record.insert(KEY_HTTP_REQUEST.to_string(), Value::Object(unmapped));
-                }
-            }
-        }
-        if !request.is_empty() {
-            log_record.add_attribute(ATTRIBUTE_HTTP_REQUEST, any_map(request));
-        }
+    if let Some(operation) = take_members(&mut record, KEY_OPERATION, operation_member) {
+        log_record.add_attribute(ATTRIBUTE_OPERATION, operation);
     }
-    if let Some(Value::Object(operation)) = record.remove(KEY_OPERATION) {
-        log_record.add_attribute(ATTRIBUTE_OPERATION, any_map(operation));
-    }
-    if let Some(insert_id) = record
-        .remove(KEY_INSERT_ID)
-        .as_ref()
-        .and_then(Value::as_str)
-    {
-        log_record.add_attribute(ATTRIBUTE_INSERT_ID, insert_id.to_string());
-    }
+    take(&mut record, KEY_INSERT_ID, |value| {
+        value
+            .as_str()
+            .map(|insert_id| log_record.add_attribute(ATTRIBUTE_INSERT_ID, insert_id.to_string()))
+    });
     if let Some(exception) = exception {
         if let Some(kind) = &exception.kind {
             log_record.add_attribute(ATTRIBUTE_EXCEPTION_TYPE, kind.clone());
@@ -127,13 +108,17 @@ pub(crate) fn populate<R: LogRecord>(
         log_record.add_attribute(ATTRIBUTE_EXCEPTION_MESSAGE, exception.message.clone());
     }
     // Every attribute that maps to no typed field becomes a label.
-    if let Some(Value::Object(labels)) = record.remove(KEY_LABELS) {
+    take(&mut record, KEY_LABELS, |value| {
+        let Value::Object(labels) = value else {
+            return None;
+        };
         for (name, value) in labels {
             if let Some(value) = any_value(value) {
                 log_record.add_attribute(name, value);
             }
         }
-    }
+        Some(())
+    });
 
     // A KeyValueList body becomes `jsonPayload`.
     log_record.set_body(any_map(record));
@@ -153,6 +138,70 @@ fn severity(name: &str) -> Option<(Severity, &'static str)> {
         "EMERGENCY" => Some((Severity::Fatal4, "EMERGENCY")),
         _ => None,
     }
+}
+
+/// Moves the members of the object under `key` that `member` accepts into one attribute value,
+/// and leaves the others in `record` under `key`. A value that is not an object stays whole.
+/// The Telemetry API rejects the whole log record for a member of the wrong type.
+fn take_members(
+    record: &mut Map<String, Value>,
+    key: &str,
+    member: fn(&str, &Value) -> Option<AnyValue>,
+) -> Option<AnyValue> {
+    let members = match record.remove(key)? {
+        Value::Object(members) => members,
+        other => {
+            record.insert(key.to_string(), other);
+            return None;
+        }
+    };
+    let mut accepted = Vec::new();
+    let mut rejected = Map::new();
+    for (name, value) in members {
+        match member(&name, &value) {
+            Some(accepted_value) => accepted.push((Key::from(name), accepted_value)),
+            None => {
+                rejected.insert(name, value);
+            }
+        }
+    }
+    if !rejected.is_empty() {
+        record.insert(key.to_string(), Value::Object(rejected));
+    }
+    (!accepted.is_empty()).then(|| accepted.into_iter().collect())
+}
+
+/// The `HttpRequest` member as the Telemetry API reads it; `None` for an unknown member or a
+/// value of the wrong type. `latency` is a number of seconds, where the record may hold a
+/// Duration string such as `125ms`.
+fn http_request_member(name: &str, value: &Value) -> Option<AnyValue> {
+    match name {
+        "requestMethod" | "requestUrl" | "userAgent" | "remoteIp" | "serverIp" | "referer"
+        | "protocol" => string_member(value),
+        "status" => as_i64(value)
+            .and_then(|status| i32::try_from(status).ok())
+            .map(|status| AnyValue::Int(i64::from(status))),
+        "requestSize" | "responseSize" | "cacheFillBytes" => as_i64(value).map(AnyValue::Int),
+        "cacheLookup" | "cacheHit" | "cacheValidatedWithOriginServer" => {
+            value.as_bool().map(AnyValue::Boolean)
+        }
+        "latency" => duration_seconds(value).map(AnyValue::Double),
+        _ => None,
+    }
+}
+
+/// The `LogEntryOperation` member as the Telemetry API reads it; `None` for an unknown member
+/// or a value of the wrong type.
+fn operation_member(name: &str, value: &Value) -> Option<AnyValue> {
+    match name {
+        "id" | "producer" => string_member(value),
+        "first" | "last" => value.as_bool().map(AnyValue::Boolean),
+        _ => None,
+    }
+}
+
+fn string_member(value: &Value) -> Option<AnyValue> {
+    value.as_str().map(|text| AnyValue::from(text.to_string()))
 }
 
 fn parse_timestamp(value: &Value) -> Option<SystemTime> {
