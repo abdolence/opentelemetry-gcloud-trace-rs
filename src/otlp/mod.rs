@@ -18,7 +18,8 @@ pub use endpoint::TelemetryEndpoint;
 pub use gcloud_sdk::GoogleAuthHeaders;
 
 use crate::common;
-use crate::errors::GcloudObservabilityResult;
+use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
+use gcloud_sdk::tonic::transport::Endpoint;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
 use opentelemetry_otlp::{WithExportConfig, WithTonicConfig};
@@ -53,11 +54,12 @@ pub struct GcpOtlpExporterBuilder {
     /// endpoint.
     pub endpoint: Option<TelemetryEndpoint>,
     /// The longest a batch export may take before the batch is dropped. It is the timeout of
-    /// every export request, and for spans also the batch processor's bound. Shutdown exports
-    /// every batch queued ahead of it, one after the other, so it can take this long once per
-    /// 512 queued spans or log records, rounded up. While unset, a request times out after the
-    /// OTLP exporter's 10 seconds, or `OTEL_EXPORTER_OTLP_TIMEOUT` when set, and the span
-    /// processor after 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT`.
+    /// connecting, TLS handshake included, and of every export request, and for spans also the
+    /// batch processor's bound. Shutdown exports every batch queued ahead of it, one after the
+    /// other, so it can take this long once per 512 queued spans or log records, rounded up.
+    /// While unset, a request times out after the OTLP exporter's 10 seconds, or
+    /// `OTEL_EXPORTER_OTLP_TIMEOUT` when set, connecting has no timeout of its own, and the
+    /// span processor gives up after 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT`.
     pub max_export_timeout: Option<Duration>,
     /// The credentials exports are authenticated with. Defaults to the Application Default
     /// Credentials with the `cloud-platform` scope. Read by the first exporter or
@@ -99,14 +101,31 @@ impl GcpOtlpExporterBuilder {
             Some(endpoint) => endpoint.to_string(),
             None => TELEMETRY_API_ENDPOINT.to_string(),
         };
-        let exporter = exporter
-            .with_endpoint(endpoint)
-            .with_tls_config(ClientTlsConfig::new().with_enabled_roots())
-            .with_interceptor(self.auth_interceptor().await?);
-        Ok(match self.max_export_timeout {
-            Some(max_export_timeout) => exporter.with_timeout(max_export_timeout),
-            None => exporter,
-        })
+        let tls_config = ClientTlsConfig::new().with_enabled_roots();
+        let exporter = match self.max_export_timeout {
+            // The exporter's own timeout starts once a request is sent, so a server that takes
+            // the connection and never completes the TLS handshake is bounded only by timeouts
+            // set on the channel. A channel passed in replaces the exporter's endpoint and TLS
+            // configuration, which therefore move onto it.
+            Some(max_export_timeout) => {
+                let channel = Endpoint::from_shared(endpoint)
+                    .map_err(|error| {
+                        GcloudObservabilityError::invalid_parameters("endpoint", error.to_string())
+                    })?
+                    .tls_config(tls_config.timeout(max_export_timeout))
+                    .map_err(|error| {
+                        GcloudObservabilityError::system_caused_by("OTLP TLS error", error)
+                    })?
+                    .connect_timeout(max_export_timeout)
+                    .timeout(max_export_timeout)
+                    .connect_lazy();
+                exporter
+                    .with_channel(channel)
+                    .with_timeout(max_export_timeout)
+            }
+            None => exporter.with_endpoint(endpoint).with_tls_config(tls_config),
+        };
+        Ok(exporter.with_interceptor(self.auth_interceptor().await?))
     }
 
     // In the order they are merged into a provider, so that `gcp.project_id` always names

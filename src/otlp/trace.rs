@@ -66,7 +66,9 @@ mod tests {
     use opentelemetry::trace::{Tracer as _, TracerProvider as _};
     use opentelemetry::{Context, Key, Value};
     use opentelemetry_sdk::error::OTelSdkResult;
-    use opentelemetry_sdk::trace::{Span, SpanData, SpanProcessor};
+    use opentelemetry_sdk::trace::{
+        InMemorySpanExporter, SimpleSpanProcessor, Span, SpanData, SpanExporter as _, SpanProcessor,
+    };
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
@@ -160,12 +162,8 @@ mod tests {
         );
     }
 
-    // An endpoint that takes the connection and never answers the TLS handshake. The OTLP
-    // exporter's own request timeout does not cover connecting, so it is the batch processor
-    // that gives up on the export.
-    // Multi-threaded: shutting down blocks this thread on the batch task.
-    #[tokio::test(flavor = "multi_thread")]
-    async fn configured_export_timeout_bounds_shutdown_against_a_silent_endpoint() {
+    /// An endpoint that takes the connection and never answers the TLS handshake.
+    async fn silent_endpoint() -> TelemetryEndpoint {
         let silent_server = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint =
             TelemetryEndpoint::new(format!("https://{}", silent_server.local_addr().unwrap()))
@@ -176,8 +174,28 @@ mod tests {
                 held.push(connection);
             }
         });
+        endpoint
+    }
+
+    fn finished_span() -> SpanData {
+        let exporter = InMemorySpanExporter::default();
+        let provider = SdkTracerProvider::builder()
+            .with_span_processor(SimpleSpanProcessor::new(exporter.clone()))
+            .build();
+        drop(provider.tracer("test").start("work"));
+        exporter
+            .get_finished_spans()
+            .unwrap()
+            .into_iter()
+            .next()
+            .expect("the simple processor exports the span as it ends")
+    }
+
+    // Multi-threaded: shutting down blocks this thread on the batch task.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn configured_export_timeout_bounds_shutdown_against_a_silent_endpoint() {
         let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
-            .with_endpoint(endpoint)
+            .with_endpoint(silent_endpoint().await)
             .with_max_export_timeout(Duration::from_millis(300))
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
             .create_provider()
@@ -191,5 +209,26 @@ mod tests {
             .expect_err("an abandoned export is reported");
 
         assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn configured_export_timeout_bounds_connecting_to_a_silent_endpoint() {
+        let exporter = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
+            .with_endpoint(silent_endpoint().await)
+            .with_max_export_timeout(Duration::from_millis(300))
+            .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
+            .span_exporter()
+            .await
+            .unwrap();
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(5),
+            exporter.export(vec![finished_span()]),
+        )
+        .await;
+
+        assert!(outcome
+            .expect("the export gives up by itself, within its timeout")
+            .is_err());
     }
 }
