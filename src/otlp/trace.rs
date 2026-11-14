@@ -22,6 +22,10 @@ impl GcpOtlpExporterBuilder {
 
     /// Adds [`Self::resource`], `gcp.project_id` and a batch processor over
     /// [`Self::span_exporter`] to `builder`.
+    ///
+    /// A `builder` with no resource of its own is not given the OpenTelemetry SDK's default
+    /// one, as [`Self::create_provider`] gives; it ends up with only [`Self::resource`] and
+    /// `gcp.project_id`.
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,

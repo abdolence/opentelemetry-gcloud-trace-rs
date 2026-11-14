@@ -23,6 +23,10 @@ impl GcpOtlpExporterBuilder {
     /// [`Self::log_exporter`] to `builder`. The processor runs on a thread of its own and
     /// reports a failed export as an `ERROR` `tracing` event with the `opentelemetry_sdk`
     /// target.
+    ///
+    /// A `builder` with no resource of its own is not given the OpenTelemetry SDK's default
+    /// one, as [`Self::create_logger_provider`] gives; it ends up with only [`Self::resource`]
+    /// and `gcp.project_id`.
     pub async fn create_logger_provider_from_builder(
         &self,
         builder: LoggerProviderBuilder,

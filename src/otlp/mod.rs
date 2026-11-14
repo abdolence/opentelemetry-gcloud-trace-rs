@@ -38,7 +38,10 @@ pub struct GcpOtlpExporterBuilder {
     /// Merged key by key over the resource of the provider builder, and under
     /// `gcp.project_id`. While unset, the provider builder's resource stands;
     /// `create_provider` and `create_logger_provider` start from the OpenTelemetry SDK's
-    /// default resource.
+    /// default resource. A builder passed to `create_provider_from_builder` or
+    /// `create_logger_provider_from_builder` without a resource of its own does not get that
+    /// default: its resource is this one and `gcp.project_id`, so set `service.name` here or
+    /// on the builder.
     pub resource: Option<Resource>,
     /// Defaults to `https://telemetry.googleapis.com`. Regional endpoints are
     /// `https://telemetry.REGION.rep.googleapis.com`. TLS is verified against the host
