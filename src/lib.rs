@@ -1,73 +1,63 @@
-//! # Google Cloud Trace and Cloud Logging for OpenTelemetry and tracing
+//! # Google Cloud observability for Rust
 //!
-//! The crate covers three uses, separately or together:
-//! - an OpenTelemetry span exporter for the Cloud Trace API,
-//!   `trace_api::GcpCloudTraceExporterBuilder` under the `trace-api` feature;
-//! - OpenTelemetry span and log exporters for the Telemetry API
-//!   (`telemetry.googleapis.com`), which takes OTLP,
-//!   `otlp::GcpOtlpExporterBuilder` under the `otlp` feature, with the log
-//!   exporter under `logs-otlp`;
-//! - a `tracing-subscriber` layer for the `tracing` crate that writes
-//!   structured Google Cloud Logging entries, correlated with the trace and
-//!   span that emitted them through the public `tracing-opentelemetry`
-//!   context API; see the [`logs`] module.
+//! Sends what a service emits through `tracing` and OpenTelemetry to Google Cloud: Cloud
+//! Logging, Cloud Trace and Error Reporting. Formerly `opentelemetry-gcloud-trace`.
 //!
-//! Neither exporter is enabled by default. The `logs` feature (default)
-//! enables the logging layer with JSON lines written to stdout; `logs-api`
-//! adds a sink writing through the Cloud Logging API.
+//! The guide, which covers each goal below, is at
+//! <https://abdolence.github.io/gcloud-observability-rs/>.
 //!
-//! ## Performance
+//! ## What each feature gives
 //!
-//! For optimal performance, a batch exporter is recommended as the simple exporter will export
-//! each span synchronously on drop. You can enable the `rt-tokio`, `rt-tokio-current-thread`
-//! features and specify a runtime on the pipeline to have a batch exporter
-//! configured for you automatically.
+//! - `logs` (default): the [`logs`] module, a `tracing-subscriber` layer that writes one
+//!   structured Cloud Logging entry per event, correlated with the trace and span that
+//!   emitted it. It writes JSON lines to stdout, which the Cloud Logging agent of GKE,
+//!   Cloud Run and GCE collects. Error Reporting support, with backtraces and a panic hook,
+//!   is part of it and works on every sink.
+//! - `logs-api`: a sink for the layer that writes through the Cloud Logging API, for hosts with
+//!   no logging agent.
+//! - `otlp`: the [`otlp`] module, OpenTelemetry exporters for the Google Cloud Telemetry API
+//!   (`telemetry.googleapis.com`), which takes OTLP, the OpenTelemetry wire protocol, and
+//!   [`otlp::GcpAuthInterceptor`], which authenticates any OTLP exporter with Google
+//!   Application Default Credentials, metrics exporters included.
+//! - `logs-otlp`: a sink for the layer that sends entries over OTLP to the Telemetry API; it
+//!   includes `logs` and `otlp`.
+//! - `trace-api`: the [`trace_api`] module, an OpenTelemetry span exporter for the Cloud Trace
+//!   API v2 (`cloudtrace.googleapis.com`).
+//! - `tls-roots` (default), `tls-webpki-roots` and `auth-default-crypto` (default) choose the
+//!   TLS root certificates and the rustls crypto provider.
 //!
-//! ```toml
-//! [dependencies]
-//! opentelemetry = { version = "*", features = ["rt-tokio"] }
-//! gcloud-observability = "*"
-//! ```
+//! No exporter is enabled by default. Nothing is re-exported at the crate root; [`errors`]
+//! holds the error types, and [`ids`] the `LogId` the Cloud Logging API and OTLP sinks take.
+//!
+//! ## Example
+//!
+//! Spans exported through OTLP, and every event written as a Cloud Logging JSON line carrying
+//! the trace and span it happened in:
 //!
 //! ```ignore
-//! let gcp_trace_exporter = trace_api::GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
+//! use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
+//! use gcloud_observability::otlp::GcpOtlpExporterBuilder;
+//! use tracing_subscriber::layer::SubscriberExt;
+//! use tracing_subscriber::{EnvFilter, Registry};
 //!
-//! let tracer_provider = gcp_trace_exporter.create_provider().await?;
-//! let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider);
+//! let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone());
+//! let tracer_provider = otlp.create_provider().await?;
+//! let tracer = otlp.install(&tracer_provider);
 //!
-//! opentelemetry::global::set_tracer_provider(tracer_provider.clone());
+//! let log_layer = GcpCloudLoggingLayerBuilder::new(google_project_id).build()?;
 //!
-//! tracer.in_span("doing_work_parent", |cx| {
-//!   // ...
-//! });
+//! // The OpenTelemetry layer goes first: the logging layer reads the span context it attaches.
+//! let subscriber = Registry::default()
+//!     .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+//!     .with(tracing_opentelemetry::layer().with_tracer(tracer))
+//!     .with(log_layer);
+//! tracing::subscriber::set_global_default(subscriber)?;
 //!
+//! // Exports the spans still queued; blocks, so it needs a multi-threaded Tokio runtime.
 //! tracer_provider.shutdown()?;
 //! ```
-//! ## Configuration
 //!
-//! You can specify trace configuration using `create_provider_from_builder`:
-//!
-//! ```ignore
-//!    gcp_trace_exporter.create_provider_from_builder (
-//!       TracerProvider::builder()
-//!          .with_sampler(Sampler::AlwaysOn)
-//!          .with_id_generator(RandomIdGenerator::default())
-//!    )
-//! ```
-//!
-//! you can specify resource using `with_resource`:
-//! ```ignore
-//!    let resources = Resource::new(vec![KeyValue::new("service.name", "my-service")]);
-//!    trace_api::GcpCloudTraceExporterBuilder::new(google_project_id).with_resource(resource).await?;
-//! ```
-//!
-//! and the longest a batch export may take using `with_max_export_timeout`:
-//! ```ignore
-//!    trace_api::GcpCloudTraceExporterBuilder::new(google_project_id).with_max_export_timeout(Duration::from_secs(3));
-//! ```
-//!
-//! Have a look at full examples in the `examples` directory.
-//!
+//! Full examples, one for each goal, are in the `examples` directory.
 
 #![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
