@@ -1,11 +1,12 @@
-//! Turns one `tracing` event into the `serde_json::Map` a Cloud Logging
-//! structured JSON line, or a future `LogEntry`, is built from.
+//! Turns one `tracing` event into the `serde_json::Map` every sink builds its
+//! entry from.
 //!
 //! Kept independent of `tracing_subscriber::Layer` and of any particular
-//! sink: the JSON sink serialises the map directly, and a Cloud Logging API
-//! sink can convert the same map into a `LogEntry` without duplicating any of
-//! the field mapping below.
+//! sink: the JSON sink serialises the map directly, and the Cloud Logging API
+//! sink converts the same map into a `LogEntry`, so the field mapping below
+//! exists once.
 
+use opentelemetry::trace::{SpanId, TraceId};
 use serde_json::{Map, Value};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -31,8 +32,8 @@ const LOG_SEVERITY_NAMES: [&str; 9] = [
 /// has no access to the tracing registry, so it never decides on its own
 /// whether correlation applies.
 pub(crate) struct TraceCorrelation {
-    pub(crate) trace_id: String,
-    pub(crate) span_id: String,
+    pub(crate) trace_id: TraceId,
+    pub(crate) span_id: SpanId,
     pub(crate) sampled: bool,
 }
 
@@ -209,7 +210,7 @@ pub(crate) fn build_log_record(
         );
         map.insert(
             "logging.googleapis.com/spanId".to_string(),
-            Value::from(correlation.span_id.clone()),
+            Value::from(correlation.span_id.to_string()),
         );
         if correlation.sampled {
             map.insert(

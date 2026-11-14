@@ -275,8 +275,8 @@ where
                 use opentelemetry::trace::TraceContextExt;
                 let span_context = cx.span().span_context().clone();
                 span_context.is_valid().then(|| format::TraceCorrelation {
-                    trace_id: span_context.trace_id().to_string(),
-                    span_id: span_context.span_id().to_string(),
+                    trace_id: span_context.trace_id(),
+                    span_id: span_context.span_id(),
                     sampled: span_context.is_sampled(),
                 })
             }
