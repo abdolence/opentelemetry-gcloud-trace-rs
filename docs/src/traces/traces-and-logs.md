@@ -7,7 +7,11 @@ In the Google Cloud console, open a trace in Trace Explorer and its "Logs" panel
 
 ## With OTLP
 
-Spans and log records go to the Telemetry API from one builder:
+Spans go to the Telemetry API through OTLP, and so do the log records in development mode.
+`APP_MODE` (default `development`) picks the log sink:
+
+- `development`: console lines, and the same entries over OTLP from the same builder, so that a run from a laptop shows the correlated entries in the console;
+- `production`: JSON lines on stdout, which a logging agent on GKE, Cloud Run or GCE collects.
 
 ```rust,ignore
 {{#include ../../../examples/traces_and_logs/otlp.rs:setup}}
@@ -15,7 +19,10 @@ Spans and log records go to the Telemetry API from one builder:
 
 ```bash
 PROJECT_ID=<your-google-project-id> cargo run --example traces-and-logs-otlp --features logs-otlp
+PROJECT_ID=<your-google-project-id> APP_MODE=production cargo run --example traces-and-logs-otlp --features logs-otlp
 ```
+
+The development mode writes every event to the terminal and over OTLP. A service picks one sink.
 
 ## With the Cloud Trace API
 
