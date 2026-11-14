@@ -22,7 +22,8 @@ fn panic_emits_one_error_event_and_calls_the_previous_hook() {
     let layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
         .with_error_reporting(ServiceContext::new("orders"))
-        .build();
+        .build()
+        .unwrap();
     let panic_line = line!() + 3;
     let result = tracing::subscriber::with_default(Registry::default().with(layer), || {
         std::panic::catch_unwind(|| {

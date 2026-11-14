@@ -26,7 +26,8 @@ fn log_line_correlates_under_global_default_dispatch() {
     let buffer = SharedBuffer::default();
     let log_layer = GcpCloudLoggingLayerBuilder::new(TEST_PROJECT)
         .with_json_writer(buffer.clone())
-        .build();
+        .build()
+        .unwrap();
 
     // Context activation off so a pass here cannot be explained by the
     // current-OpenTelemetry-context fallback; only the global-default lookup

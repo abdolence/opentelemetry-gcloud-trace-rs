@@ -1,4 +1,4 @@
-use gcloud_observability::ids::{GoogleProjectId, LogId};
+use gcloud_observability::ids::LogId;
 use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
@@ -11,7 +11,7 @@ pub fn config_env_var(name: &str) -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
+    let google_project_id = config_env_var("PROJECT_ID")?;
 
     let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
         .with_resource(

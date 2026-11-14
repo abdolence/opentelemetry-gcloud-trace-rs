@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     "simple-app",
                 )])
                 .build(),
-        ); // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?.parse()?)
+        ); // or GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
     let tracer_provider = gcp_trace_exporter.create_provider().await?;
     let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider);
 

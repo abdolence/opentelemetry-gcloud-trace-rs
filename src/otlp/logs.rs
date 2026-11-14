@@ -91,7 +91,7 @@ mod tests {
         )
         .unwrap();
         let unreachable_endpoint = TelemetryEndpoint::new("https://127.0.0.1:1").unwrap();
-        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
             .with_endpoint(unreachable_endpoint)
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
             .create_logger_provider()

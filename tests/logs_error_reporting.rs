@@ -72,7 +72,7 @@ fn lines_from(
     emit: impl FnOnce(),
 ) -> Vec<Value> {
     enable_backtraces();
-    let subscriber = Registry::default().with(builder.build());
+    let subscriber = Registry::default().with(builder.build().unwrap());
     tracing::subscriber::with_default(subscriber, emit);
     buffer.lines()
 }

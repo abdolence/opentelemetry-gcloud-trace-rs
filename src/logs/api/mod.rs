@@ -17,7 +17,7 @@ pub(crate) use batcher::{spawn, ApiSink, LogEntrySink};
 pub use gcloud_sdk::google::api::MonitoredResource;
 
 use crate::errors::GcloudObservabilityResult;
-use crate::ids::{GoogleProjectId, LogId};
+use crate::ids::LogId;
 use gcloud_sdk::google::logging::v2::logging_service_v2_client::LoggingServiceV2Client;
 use gcloud_sdk::google::logging::v2::WriteLogEntriesRequest;
 use gcloud_sdk::{GoogleApi, GoogleAuthMiddleware};
@@ -89,10 +89,7 @@ impl GcpCloudLoggingApiConfig {
         self
     }
 
-    pub(crate) fn resource_or_default(
-        &self,
-        google_project_id: &GoogleProjectId,
-    ) -> MonitoredResource {
+    pub(crate) fn resource_or_default(&self, google_project_id: &str) -> MonitoredResource {
         self.resource.clone().unwrap_or_else(|| MonitoredResource {
             r#type: "global".to_string(),
             labels: [("project_id".to_string(), google_project_id.to_string())]

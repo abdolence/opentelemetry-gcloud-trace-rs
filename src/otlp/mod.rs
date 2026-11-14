@@ -17,8 +17,8 @@ pub use endpoint::TelemetryEndpoint;
 /// `gcloud-sdk` directly.
 pub use gcloud_sdk::GoogleAuthHeaders;
 
+use crate::common;
 use crate::errors::GcloudObservabilityResult;
-use crate::ids::GoogleProjectId;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::tonic_types::transport::ClientTlsConfig;
 use opentelemetry_otlp::{WithExportConfig, WithTonicConfig};
@@ -36,8 +36,11 @@ const TELEMETRY_API_ENDPOINT: &str = "https://telemetry.googleapis.com";
 #[non_exhaustive]
 pub struct GcpOtlpExporterBuilder {
     /// Set as `gcp.project_id` on the resource of every provider built here, over any
-    /// value the resource already has.
-    pub google_project_id: GoogleProjectId,
+    /// value the resource already has. Checked when an exporter is built: an empty ID, or one
+    /// with `/` or a control character, fails with [`InvalidParametersError`].
+    ///
+    /// [`InvalidParametersError`]: crate::errors::GcloudObservabilityError::InvalidParametersError
+    pub google_project_id: String,
     /// Merged key by key over the resource of the provider builder, and under
     /// `gcp.project_id`. While unset, the provider builder's resource stands;
     /// `create_provider` and `create_logger_provider` start from the OpenTelemetry SDK's
@@ -67,13 +70,8 @@ pub struct GcpOtlpExporterBuilder {
 impl GcpOtlpExporterBuilder {
     /// Starts a builder for the project of the environment the process runs in, as
     /// [`gcloud_sdk::GoogleEnvironment::detect_google_project_id`] finds it.
-    ///
-    /// Fails with [`GcloudObservabilityError::InvalidParametersError`] when the detected ID is
-    /// not a valid [`GoogleProjectId`].
-    ///
-    /// [`GcloudObservabilityError::InvalidParametersError`]: crate::errors::GcloudObservabilityError::InvalidParametersError
     pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
-        Ok(Self::new(GoogleProjectId::detect().await?))
+        Ok(Self::new(common::detect_google_project_id().await?))
     }
 
     /// The interceptor every exporter built here authenticates with, created over
@@ -96,6 +94,7 @@ impl GcpOtlpExporterBuilder {
     where
         B: WithExportConfig + WithTonicConfig,
     {
+        common::validate_google_project_id(&self.google_project_id)?;
         let endpoint = match &self.endpoint {
             Some(endpoint) => endpoint.to_string(),
             None => TELEMETRY_API_ENDPOINT.to_string(),
@@ -116,7 +115,7 @@ impl GcpOtlpExporterBuilder {
         let project = Resource::builder_empty()
             .with_attribute(KeyValue::new(
                 "gcp.project_id",
-                self.google_project_id.to_string(),
+                self.google_project_id.clone(),
             ))
             .build();
         self.resource.clone().into_iter().chain([project])
@@ -126,12 +125,13 @@ impl GcpOtlpExporterBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::GcloudObservabilityError;
     use crate::otlp::testing::{ScriptedAccessToken, ORDERS_PROJECT};
 
     #[tokio::test]
     async fn exporters_of_one_builder_share_one_refresh_task() {
         let auth_headers = ScriptedAccessToken::new("first-token").auth_headers();
-        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
             .with_auth_headers(Arc::clone(&auth_headers));
 
         let _spans = builder.auth_interceptor().await.unwrap();
@@ -139,5 +139,18 @@ mod tests {
 
         // Held here, by the builder and by the one refresh task.
         assert_eq!(Arc::strong_count(&auth_headers), 3);
+    }
+
+    #[tokio::test]
+    async fn invalid_project_id_is_refused_before_credentials_are_read() {
+        let result = GcpOtlpExporterBuilder::new("orders/prod".to_string())
+            .span_exporter()
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(GcloudObservabilityError::InvalidParametersError(error))
+                if error.field == "google_project_id"
+        ));
     }
 }

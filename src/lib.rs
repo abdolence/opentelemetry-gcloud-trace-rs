@@ -30,7 +30,7 @@
 //! ```
 //!
 //! ```ignore
-//! let gcp_trace_exporter = trace_api::GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?.parse()?)
+//! let gcp_trace_exporter = trace_api::GcpCloudTraceExporterBuilder::new(config_env_var("PROJECT_ID")?)
 //!
 //! let tracer_provider = gcp_trace_exporter.create_provider().await?;
 //! let tracer: opentelemetry_sdk::trace::Tracer = gcp_trace_exporter.install(&tracer_provider);
@@ -71,10 +71,10 @@
 
 #![allow(unused_parens, clippy::new_without_default, clippy::needless_update)]
 
-#[cfg(any(feature = "trace-api", feature = "otlp"))]
+#[cfg(any(feature = "logs", feature = "trace-api", feature = "otlp"))]
 mod common;
 pub mod errors;
-#[cfg(any(feature = "logs", feature = "trace-api", feature = "otlp"))]
+#[cfg(any(feature = "logs-api", feature = "logs-otlp"))]
 pub mod ids;
 
 #[cfg(feature = "logs")]

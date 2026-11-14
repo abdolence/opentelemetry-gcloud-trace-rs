@@ -7,7 +7,6 @@
 //! OpenTelemetry log record, so the field mapping below exists once.
 
 use super::error_reporting::{error_chain, ExceptionDetails, ServiceContext};
-use crate::ids::GoogleProjectId;
 use opentelemetry::trace::{SpanId, TraceId};
 use serde_json::{Map, Value};
 use time::format_description::well_known::Rfc3339;
@@ -247,7 +246,7 @@ fn is_error_severity(severity: &str) -> bool {
 /// Reporting event.
 pub(crate) fn build_log_record(
     event: &Event<'_>,
-    google_project_id: &GoogleProjectId,
+    google_project_id: &str,
     with_source_location: bool,
     correlation: Option<&TraceCorrelation>,
     error_reporting: Option<&ServiceContext>,

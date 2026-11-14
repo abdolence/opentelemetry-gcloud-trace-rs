@@ -8,7 +8,6 @@ pub use exporter::GcpCloudTraceExporter;
 
 use crate::common;
 use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
-use crate::ids::GoogleProjectId;
 use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
 use opentelemetry_sdk::trace::{SdkTracerProvider, SpanExporter, Tracer, TracerProviderBuilder};
@@ -19,7 +18,11 @@ use std::time::Duration;
 #[derive(Debug, Builder)]
 #[non_exhaustive]
 pub struct GcpCloudTraceExporterBuilder {
-    pub google_project_id: GoogleProjectId,
+    /// Checked when the exporter is built: an empty ID, or one with `/` or a control character,
+    /// fails with [`InvalidParametersError`].
+    ///
+    /// [`InvalidParametersError`]: crate::errors::GcloudObservabilityError::InvalidParametersError
+    pub google_project_id: String,
     pub resource: Option<Resource>,
     /// Exports span events to Cloud Trace as `time_events` annotations. Defaults to `false`
     /// since span events are commonly captured by a logging layer as well.
@@ -34,11 +37,8 @@ pub struct GcpCloudTraceExporterBuilder {
 impl GcpCloudTraceExporterBuilder {
     /// Starts a builder for the project of the environment the process runs in, as
     /// [`gcloud_sdk::GoogleEnvironment::detect_google_project_id`] finds it.
-    ///
-    /// Fails with [`GcloudObservabilityError::InvalidParametersError`] when the detected ID is
-    /// not a valid [`GoogleProjectId`].
     pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
-        Ok(Self::new(GoogleProjectId::detect().await?))
+        Ok(Self::new(common::detect_google_project_id().await?))
     }
 
     /// [`Self::create_provider_from_builder`] over the OpenTelemetry SDK's default builder.
@@ -113,9 +113,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn configured_export_timeout_bounds_shutdown() {
-        let builder =
-            GcpCloudTraceExporterBuilder::new(GoogleProjectId::from_static("test-project"))
-                .with_max_export_timeout(Duration::from_millis(200));
+        let builder = GcpCloudTraceExporterBuilder::new("test-project".to_string())
+            .with_max_export_timeout(Duration::from_millis(200));
         let provider = SdkTracerProvider::builder()
             .with_span_processor(builder.batch_span_processor(HungExporter))
             .build();
@@ -127,5 +126,18 @@ mod tests {
             .expect_err("an abandoned export is reported");
 
         assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn invalid_project_id_is_refused_before_credentials_are_read() {
+        let result = GcpCloudTraceExporterBuilder::new("orders/prod".to_string())
+            .create_provider()
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(GcloudObservabilityError::InvalidParametersError(error))
+                if error.field == "google_project_id"
+        ));
     }
 }

@@ -10,7 +10,7 @@
 //! RUST_BACKTRACE=1 PROJECT_ID=your-project cargo run --example errors-panic-hook --features logs-api
 //! ```
 
-use gcloud_observability::ids::{GoogleProjectId, LogId};
+use gcloud_observability::ids::LogId;
 use gcloud_observability::logs::{
     install_panic_hook, GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder, ServiceContext,
 };
@@ -31,7 +31,7 @@ fn adjust_inventory(stock: u32, sold: u32) -> u32 {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
+    let google_project_id = config_env_var("PROJECT_ID")?;
 
     let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(google_project_id)
         .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(LogId::from_static(

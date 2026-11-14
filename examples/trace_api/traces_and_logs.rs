@@ -25,7 +25,7 @@
 //! PROJECT_ID=your-project APP_MODE=production cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
 //! ```
 
-use gcloud_observability::ids::{GoogleProjectId, LogId};
+use gcloud_observability::ids::LogId;
 use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
 use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use opentelemetry::trace::TraceContextExt;
@@ -124,7 +124,7 @@ async fn send_notification(order_id: &str) -> Result<(), String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
+    let google_project_id = config_env_var("PROJECT_ID")?;
     let mode = AppMode::from_env();
 
     let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
@@ -168,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             None,
             None,
             None,
-            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()),
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id.clone()).build()?),
         ),
     };
 

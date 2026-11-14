@@ -108,7 +108,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn provider_resource_names_the_project_and_keeps_the_service_name() {
         let probe = ResourceProbe::default();
-        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
             .with_resource(Resource::builder().with_service_name("orders").build())
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
 
@@ -122,7 +122,7 @@ mod tests {
         let resource = probe.resource();
         assert_eq!(
             resource.get(&Key::from_static_str("gcp.project_id")),
-            Some(Value::from(ORDERS_PROJECT.to_string()))
+            Some(Value::from(ORDERS_PROJECT))
         );
         assert_eq!(
             resource.get(&Key::from_static_str("service.name")),
@@ -133,7 +133,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn provider_builder_resource_wins_while_no_resource_is_set() {
         let probe = ResourceProbe::default();
-        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+        let builder = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers());
 
         let _provider = builder
@@ -156,7 +156,7 @@ mod tests {
         );
         assert_eq!(
             resource.get(&Key::from_static_str("gcp.project_id")),
-            Some(Value::from(ORDERS_PROJECT.to_string()))
+            Some(Value::from(ORDERS_PROJECT))
         );
     }
 
@@ -176,7 +176,7 @@ mod tests {
                 held.push(connection);
             }
         });
-        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT)
+        let provider = GcpOtlpExporterBuilder::new(ORDERS_PROJECT.to_string())
             .with_endpoint(endpoint)
             .with_max_export_timeout(Duration::from_millis(300))
             .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())

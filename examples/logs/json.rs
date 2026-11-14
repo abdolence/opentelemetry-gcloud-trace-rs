@@ -8,7 +8,6 @@
 //! `examples/logs/api.rs` instead, which writes through the Cloud
 //! Logging API directly rather than to stdout.
 
-use gcloud_observability::ids::GoogleProjectId;
 use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
@@ -36,7 +35,7 @@ impl AppMode {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let google_project_id: GoogleProjectId = config_env_var("PROJECT_ID")?.parse()?;
+    let google_project_id = config_env_var("PROJECT_ID")?;
     let mode = AppMode::from_env();
 
     let gcp_trace_exporter = GcpCloudTraceExporterBuilder::new(google_project_id.clone())
@@ -59,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
         AppMode::Production => (
             None,
-            Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()),
+            Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
         ),
     };
 
