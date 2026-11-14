@@ -216,7 +216,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "https://console.cloud.google.com/traces/list?project={google_project_id}&tid={trace_id}"
         ),
         logs_explorer = %format!(
-            "https://console.cloud.google.com/logs/query;query=trace%3D%22projects%2F{google_project_id}%2Ftraces%2F{trace_id}%22?project={google_project_id}"
+            "https://console.cloud.google.com/logs/query;query=trace%3A%22{trace_id}%22?project={google_project_id}"
         ),
         "request handled; open the trace in the console"
     );

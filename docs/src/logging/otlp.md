@@ -46,4 +46,6 @@ Attributes that map to no typed field become labels.
 The resource of the provider carries `gcp.project_id`, and `service.name` when set.
 See [Comparison with the OpenTelemetry tracing bridge](./otlp-bridge.md) for entries side by side.
 
+Entries sent over OTLP store `trace` as the bare trace ID rather than `projects/PROJECT_ID/traces/TRACE_ID`, so filter them with `trace:"TRACE_ID"`, which matches both forms.
+
 Full example available [here](https://github.com/abdolence/gcloud-observability-rs/blob/master/examples/logging/otlp.rs).
