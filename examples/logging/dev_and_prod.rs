@@ -19,10 +19,27 @@ use tracing::{info, info_span, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
+// ANCHOR: app-mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppMode {
+    Development,
+    Production,
+}
+
+impl AppMode {
+    fn from_env() -> Self {
+        match std::env::var("APP_MODE").as_deref() {
+            Ok("production") => AppMode::Production,
+            _ => AppMode::Development,
+        }
+    }
+}
+// ANCHOR_END: app-mode
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let google_project_id = std::env::var("PROJECT_ID")?;
-    let production = std::env::var("APP_MODE").is_ok_and(|mode| mode == "production");
+    let mode = AppMode::from_env();
 
     let otlp = GcpOtlpExporterBuilder::new(google_project_id.clone()).with_resource(
         opentelemetry_sdk::Resource::builder()
@@ -35,13 +52,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // ANCHOR: layers
     // `Option<Layer>` implements `Layer`, so both sinks are built from one `match` and composed
     // unconditionally below. The inactive one is a `None` that costs nothing.
-    let (console_layer, json_layer) = if production {
-        (
+    let (console_layer, json_layer) = match mode {
+        AppMode::Development => (Some(tracing_subscriber::fmt::layer()), None),
+        AppMode::Production => (
             None,
             Some(GcpCloudLoggingLayerBuilder::new(google_project_id).build()?),
-        )
-    } else {
-        (Some(tracing_subscriber::fmt::layer()), None)
+        ),
     };
 
     // The OpenTelemetry layer goes before the logging layer: the logging layer reads the span
