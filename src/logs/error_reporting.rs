@@ -96,8 +96,8 @@ impl ServiceContext {
         let stacktrace = capture_backtrace();
 
         // The trace goes in `message` only: `stack_trace` would hide it, and with it the header.
-        // The chain stays on the header line: Error Reporting reads a `Caused by:` line as the
-        // cause its group is keyed on, which put unrelated errors sharing a root cause in one
+        // The chain stays on the header line: Error Reporting keys a group on the cause a
+        // `Caused by:` line names, so unrelated errors that share a root cause would be one
         // group.
         let mut message = match error {
             Some(_) => format!("{event_message}: {exception_message}"),
