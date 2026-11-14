@@ -46,11 +46,15 @@ impl GcpOtlpExporterBuilder {
 mod tests {
     use super::*;
     use crate::otlp::testing::ScriptedAccessToken;
+    use opentelemetry::trace::{Tracer as _, TracerProvider as _};
     use opentelemetry::{Context, Key, Value};
     use opentelemetry_sdk::error::OTelSdkResult;
-    use opentelemetry_sdk::trace::{Span, SpanData, SpanProcessor};
+    use opentelemetry_sdk::trace::{
+        InMemorySpanExporter, Span, SpanData, SpanExporter as _, SpanProcessor,
+    };
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+    use tokio::net::TcpListener;
 
     /// Keeps the resource its provider hands it.
     #[derive(Debug, Clone, Default)]
@@ -138,6 +142,39 @@ mod tests {
         assert_eq!(
             resource.get(&Key::from_static_str("gcp.project_id")),
             Some(Value::from("orders-project"))
+        );
+    }
+
+    #[tokio::test]
+    async fn export_gives_up_after_max_export_timeout() {
+        let silent_server = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", silent_server.local_addr().unwrap());
+        tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((connection, _)) = silent_server.accept().await {
+                held.push(connection);
+            }
+        });
+        let memory = InMemorySpanExporter::default();
+        let tracer_provider = SdkTracerProvider::builder()
+            .with_simple_exporter(memory.clone())
+            .build();
+        drop(tracer_provider.tracer("test").start("work"));
+        let spans = memory.get_finished_spans().unwrap();
+
+        let exporter = GcpOtlpExporterBuilder::new("orders-project".to_string())
+            .with_endpoint(endpoint)
+            .with_max_export_timeout(Duration::from_millis(300))
+            .with_auth_headers(ScriptedAccessToken::new("first-token").auth_headers())
+            .span_exporter()
+            .await
+            .unwrap();
+
+        let outcome = tokio::time::timeout(Duration::from_secs(5), exporter.export(spans)).await;
+
+        assert!(
+            matches!(outcome, Ok(Err(_))),
+            "the export fails once the timeout passes, got {outcome:?}"
         );
     }
 }

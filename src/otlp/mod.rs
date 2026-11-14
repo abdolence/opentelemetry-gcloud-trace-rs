@@ -44,11 +44,12 @@ pub struct GcpOtlpExporterBuilder {
     /// `https://telemetry.REGION.rep.googleapis.com`. TLS is verified against the host
     /// of the endpoint.
     pub endpoint: Option<String>,
-    /// The longest a batch export may take before the batch is dropped. Shutdown exports every
-    /// batch queued ahead of it, one after the other, so it can take this long once per 512
-    /// queued spans or log records, rounded up. Defaults to the OpenTelemetry SDK default of
-    /// 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT` for spans and `OTEL_BLRP_EXPORT_TIMEOUT` for
-    /// log records when set.
+    /// The longest a batch export may take before the batch is dropped. It is the timeout of
+    /// every export request, and for spans also the batch processor's bound. Shutdown exports
+    /// every batch queued ahead of it, one after the other, so it can take this long once per
+    /// 512 queued spans or log records, rounded up. While unset, a request times out after the
+    /// OTLP exporter's 10 seconds, or `OTEL_EXPORTER_OTLP_TIMEOUT` when set, and the span
+    /// processor after 30 seconds, or `OTEL_BSP_EXPORT_TIMEOUT`.
     pub max_export_timeout: Option<Duration>,
     /// The credentials exports are authenticated with. Defaults to the Application Default
     /// Credentials with the `cloud-platform` scope. Read by the first exporter or
@@ -93,14 +94,18 @@ impl GcpOtlpExporterBuilder {
                     "The OTLP endpoint `{endpoint}` is not a URI with a host"
                 )))
             })?;
-        Ok(exporter
+        let exporter = exporter
             .with_endpoint(endpoint)
             .with_tls_config(
                 ClientTlsConfig::new()
                     .with_enabled_roots()
                     .domain_name(host),
             )
-            .with_interceptor(self.auth_interceptor().await?))
+            .with_interceptor(self.auth_interceptor().await?);
+        Ok(match self.max_export_timeout {
+            Some(max_export_timeout) => exporter.with_timeout(max_export_timeout),
+            None => exporter,
+        })
     }
 
     // In the order they are merged into a provider, so that `gcp.project_id` always names
