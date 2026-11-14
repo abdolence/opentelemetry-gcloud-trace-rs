@@ -34,6 +34,8 @@ const KEY_CONTEXT_HTTP_REQUEST: &str = "httpRequest";
 /// An event field that names the exception type for the OTLP `exception.type` attribute; a
 /// `&dyn Error` has no type name on stable Rust.
 const FIELD_EXCEPTION_TYPE: &str = "exception.type";
+/// The event field the panic hook records the panic's `file:line:column` in.
+const FIELD_PANIC_LOCATION: &str = "panic.location";
 
 /// `HttpRequest` member names mapped to Error Reporting's `HttpRequestContext` members.
 const HTTP_REQUEST_CONTEXT_KEYS: [(&str, &str); 6] = [
@@ -116,16 +118,7 @@ impl ServiceContext {
         record.insert(KEY_SERVICE_CONTEXT.to_string(), Value::Object(service));
 
         let mut context = Map::new();
-        let mut location = Map::new();
-        if let Some(file) = metadata.file() {
-            location.insert("filePath".to_string(), Value::from(file));
-        }
-        if let Some(line) = metadata.line() {
-            location.insert("lineNumber".to_string(), Value::from(line));
-        }
-        if let Some(module_path) = metadata.module_path() {
-            location.insert("functionName".to_string(), Value::from(module_path));
-        }
+        let location = report_location(record, metadata);
         if !location.is_empty() {
             context.insert(KEY_REPORT_LOCATION.to_string(), Value::Object(location));
         }
@@ -147,6 +140,39 @@ impl ServiceContext {
             message: exception_message,
         }
     }
+}
+
+/// Where the error is reported from: the location of a panic, which the panic hook records in
+/// `panic.location`, and otherwise the code location of the event. The hook's own location
+/// would put every panic at one place.
+fn report_location(record: &Map<String, Value>, metadata: &Metadata<'_>) -> Map<String, Value> {
+    let mut location = Map::new();
+    let panic_location = record
+        .get(FIELD_PANIC_LOCATION)
+        .and_then(Value::as_str)
+        .and_then(|text| {
+            let (file_and_line, _column) = text.rsplit_once(':')?;
+            let (file, line) = file_and_line.rsplit_once(':')?;
+            Some((file, line.parse::<u32>().ok()?))
+        });
+    match panic_location {
+        Some((file, line)) => {
+            location.insert("filePath".to_string(), Value::from(file));
+            location.insert("lineNumber".to_string(), Value::from(line));
+        }
+        None => {
+            if let Some(file) = metadata.file() {
+                location.insert("filePath".to_string(), Value::from(file));
+            }
+            if let Some(line) = metadata.line() {
+                location.insert("lineNumber".to_string(), Value::from(line));
+            }
+            if let Some(module_path) = metadata.module_path() {
+                location.insert("functionName".to_string(), Value::from(module_path));
+            }
+        }
+    }
+    location
 }
 
 fn http_request_context(request: &Map<String, Value>) -> Map<String, Value> {
@@ -219,11 +245,17 @@ impl fmt::Display for ErrorChain {
 /// Emits one `tracing` error event for every panic, then calls the hook that was installed
 /// before. Call it once, early in `main`.
 ///
-/// The event carries the panic message and `panic.location`. It reaches Error Reporting when
-/// the logging layer was built with
-/// [`with_error_reporting`](crate::logs::GcpCloudLoggingLayerBuilder::with_error_reporting), and
-/// the backtrace the layer captures then starts at the panic. `reportLocation` names this hook,
-/// not the panicking code, so a panic is grouped by its trace, which needs `RUST_BACKTRACE`.
+/// The event carries the panic message and `panic.location`, and `context.reportLocation`
+/// names that location. It reaches Error Reporting when the logging layer was built with
+/// [`with_error_reporting`](crate::logs::GcpCloudLoggingLayerBuilder::with_error_reporting);
+/// the backtrace the layer captures then runs from this hook, and needs `RUST_BACKTRACE`.
+///
+/// The Cloud Logging API and OTLP sinks only queue the event and send it later in the
+/// background, so it is lost when the process ends before the queue is flushed: after
+/// `panic = "abort"`, or when a panic unwinds out of `main`, unless something flushes on the
+/// way, such as a guard that shuts the logger provider down on drop. Flush or shut down the
+/// logger provider or the `GcpCloudLoggingHandle` before the process ends, or use the JSON
+/// sink, which writes the event before this hook returns.
 pub fn install_panic_hook() {
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {

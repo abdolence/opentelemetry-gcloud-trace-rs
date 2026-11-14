@@ -80,4 +80,9 @@ fn panic_emits_one_error_event_and_calls_the_previous_hook() {
         .as_str()
         .expect("the panic location is a field");
     assert!(location.contains("logs_panic_hook.rs") && location.contains(&panic_line.to_string()));
+    let report_location = &lines[0]["context"]["reportLocation"];
+    assert!(report_location["filePath"]
+        .as_str()
+        .is_some_and(|path| path.ends_with("logs_panic_hook.rs")));
+    assert_eq!(report_location["lineNumber"], panic_line);
 }
