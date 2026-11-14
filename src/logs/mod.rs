@@ -16,7 +16,7 @@
 //! that specific configuration.
 //!
 //! ```ignore
-//! use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
+//! use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 //! use tracing_subscriber::layer::SubscriberExt;
 //!
 //! let log_layer = GcpCloudLoggingLayerBuilder::new(project_id).build();
@@ -41,7 +41,7 @@ mod json;
 #[cfg(feature = "logs-api")]
 pub use api::{GcpCloudLoggingApiConfig, GcpCloudLoggingHandle, MonitoredResource};
 
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use json::JsonSink;
 use std::sync::{Once, OnceLock};
 use tracing::dispatcher::{Dispatch, WeakDispatch};
@@ -85,7 +85,7 @@ impl GcpCloudLoggingLayerBuilder<fn() -> std::io::Stdout> {
     /// Detects the Google Cloud project id from the environment or the
     /// default service account, the same way the exporter builders'
     /// `for_default_project_id` does, and starts a builder from it.
-    pub async fn for_default_project_id() -> TraceExportResult<Self> {
+    pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
         Ok(Self::new(crate::common::detect_google_project_id().await?))
     }
 }
@@ -136,7 +136,7 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
     /// `shutdown` leaves queued entries unwritten.
     pub async fn build_async(
         self,
-    ) -> TraceExportResult<(GcpCloudLoggingLayer, GcpCloudLoggingHandle)> {
+    ) -> GcloudObservabilityResult<(GcpCloudLoggingLayer, GcpCloudLoggingHandle)> {
         let config = self.make_writer;
         let resource = config.resource_or_default(&self.project_id);
         let log_name = format!("projects/{}/logs/{}", self.project_id, config.log_id);
@@ -206,7 +206,7 @@ impl GcpCloudLoggingLayer {
     fn warn_missing_otel_layer(&self) {
         self.missing_otel_layer_warned.call_once(|| {
             eprintln!(
-                "opentelemetry-gcloud-trace: trace correlation is disabled for this event \
+                "gcloud-observability: trace correlation is disabled for this event \
                  because no tracing-opentelemetry layer is registered, or it is registered \
                  after GcpCloudLoggingLayer; register `tracing_opentelemetry::layer()` first."
             );

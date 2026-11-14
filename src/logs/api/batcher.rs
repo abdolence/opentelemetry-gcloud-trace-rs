@@ -251,7 +251,7 @@ impl Batcher {
         if let Err(message) = self.sink.write(request).await {
             if report_due(&mut self.last_failure_report, self.flush_interval) {
                 eprintln!(
-                    "opentelemetry-gcloud-trace: discarded a batch of {count} log entries: {message}"
+                    "gcloud-observability: discarded a batch of {count} log entries: {message}"
                 );
             }
         }
@@ -262,7 +262,7 @@ impl Batcher {
         let unreported = dropped.saturating_sub(self.reported_drops);
         if unreported > 0 && report_due(&mut self.last_drop_report, self.flush_interval) {
             eprintln!(
-                "opentelemetry-gcloud-trace: dropped {unreported} log entries, \
+                "gcloud-observability: dropped {unreported} log entries, \
                  the Cloud Logging queue is full"
             );
             self.reported_drops = dropped;

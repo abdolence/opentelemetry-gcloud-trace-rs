@@ -1,15 +1,14 @@
 [package]
-name = "opentelemetry-gcloud-trace"
+name = "gcloud-observability"
 version = "0.30.0"
 authors = ["Abdulla Abdurakhmanov <me@abdolence.dev>"]
 edition = "2021"
 rust-version = "1.91"
 license = "Apache-2.0"
-description = "Google Cloud Trace exporter for OpenTelemetry and a Google Cloud Logging layer for the tracing crate, with log entries correlated to traces"
-homepage = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
-repository = "https://github.com/abdolence/opentelemetry-gcloud-trace-rs"
-documentation = "https://docs.rs/opentelemetry-gcloud-trace"
-keywords = ["tracing", "opentelemetry", "google-cloud", "cloud-logging", "cloud-trace"]
+description = "Google Cloud observability for Rust: OpenTelemetry exporters for Cloud Trace through the Cloud Trace API or OTLP, and a tracing layer for Cloud Logging and Error Reporting with entries correlated to traces"
+repository = "https://github.com/abdolence/gcloud-observability-rs"
+documentation = "https://docs.rs/gcloud-observability"
+keywords = ["cloud-logging", "cloud-trace", "error-reporting", "otlp", "tracing"]
 categories = ["api-bindings", "development-tools::debugging"]
 readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE", "SECURITY.md"]
@@ -21,7 +20,7 @@ maintenance = { status = "actively-developed" }
 all-features = true
 
 [lib]
-name = "opentelemetry_gcloud_trace"
+name = "gcloud_observability"
 path = "src/lib.rs"
 
 [dependencies]

@@ -1,5 +1,5 @@
 use super::client::GcpCloudTraceExporterClient;
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use futures::future::TryFutureExt;
 use futures::FutureExt;
 use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
@@ -19,7 +19,7 @@ impl GcpCloudTraceExporter {
         google_project_id: &str,
         resource: Resource,
         export_span_events: bool,
-    ) -> TraceExportResult<Self> {
+    ) -> GcloudObservabilityResult<Self> {
         Ok(Self {
             gcp_export_client: Arc::new(
                 GcpCloudTraceExporterClient::new(google_project_id, resource, export_span_events)

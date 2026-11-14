@@ -8,8 +8,8 @@
 //! `examples/logs/api.rs` instead, which writes through the Cloud
 //! Logging API directly rather than to stdout.
 
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
-use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
+use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
+use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};

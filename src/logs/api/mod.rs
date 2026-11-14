@@ -16,7 +16,7 @@ pub(crate) use batcher::{spawn, ApiSink, LogEntrySink};
 /// need not depend on `gcloud-sdk` directly.
 pub use gcloud_sdk::google::api::MonitoredResource;
 
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use gcloud_sdk::google::logging::v2::logging_service_v2_client::LoggingServiceV2Client;
 use gcloud_sdk::google::logging::v2::WriteLogEntriesRequest;
 use gcloud_sdk::{GoogleApi, GoogleAuthMiddleware};
@@ -104,7 +104,7 @@ pub(crate) struct GcloudLogEntrySink {
 }
 
 impl GcloudLogEntrySink {
-    pub(crate) async fn new() -> TraceExportResult<Self> {
+    pub(crate) async fn new() -> GcloudObservabilityResult<Self> {
         let client = GoogleApi::from_function(
             LoggingServiceV2Client::new,
             "https://logging.googleapis.com",

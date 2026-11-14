@@ -25,9 +25,9 @@
 //! PROJECT_ID=your-project APP_MODE=production cargo run --example trace-api-traces-and-logs --features trace-api,logs-api
 //! ```
 
+use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
+use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use opentelemetry::trace::TraceContextExt;
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
 use std::time::Duration;
 use tracing::*;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -150,7 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         AppMode::Development => {
             let (api_layer, api_handle) = GcpCloudLoggingLayerBuilder::new(project_id.clone())
                 .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
-                    "opentelemetry-gcloud-trace-example",
+                    "gcloud-observability-example",
                 ))
                 .build_async()
                 .await?;

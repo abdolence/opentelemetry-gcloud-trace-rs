@@ -1,4 +1,6 @@
-use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
+use crate::errors::{
+    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
+};
 use gcloud_sdk::tonic::metadata::{KeyAndValueRef, MetadataMap};
 use gcloud_sdk::tonic::service::Interceptor;
 use gcloud_sdk::tonic::{Request, Status};
@@ -36,10 +38,12 @@ impl GcpAuthInterceptor {
     ///
     /// Fails when called outside a Tokio runtime, or when the credentials serve no
     /// headers.
-    pub async fn new(auth_headers: impl Into<Arc<GoogleAuthHeaders>>) -> TraceExportResult<Self> {
+    pub async fn new(
+        auth_headers: impl Into<Arc<GoogleAuthHeaders>>,
+    ) -> GcloudObservabilityResult<Self> {
         let runtime = Handle::try_current().map_err(|error| {
-            GcloudTraceError::SystemError(
-                GcloudTraceSystemError::new(
+            GcloudObservabilityError::SystemError(
+                GcloudObservabilitySystemError::new(
                     "GcpAuthInterceptor refreshes its credentials on a Tokio runtime, and none is running".to_string(),
                 )
                 .with_root_cause(Box::new(error)),
@@ -55,7 +59,7 @@ impl GcpAuthInterceptor {
 
     /// [`Self::new`] with the Application Default Credentials and the `cloud-platform`
     /// scope.
-    pub async fn from_adc() -> TraceExportResult<Self> {
+    pub async fn from_adc() -> GcloudObservabilityResult<Self> {
         Self::new(GoogleAuthHeaders::from_adc().await?).await
     }
 }
@@ -185,6 +189,9 @@ mod tests {
 
         let result = GcpAuthInterceptor::new(auth_headers).await;
 
-        assert!(matches!(result, Err(GcloudTraceError::SystemError(_))));
+        assert!(matches!(
+            result,
+            Err(GcloudObservabilityError::SystemError(_))
+        ));
     }
 }

@@ -1,19 +1,19 @@
 use super::GcpOtlpExporterBuilder;
 use crate::common;
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use opentelemetry_otlp::SpanExporter;
 use opentelemetry_sdk::trace::{SdkTracerProvider, Tracer, TracerProviderBuilder};
 use opentelemetry_sdk::Resource;
 
 impl GcpOtlpExporterBuilder {
-    pub async fn span_exporter(&self) -> TraceExportResult<SpanExporter> {
+    pub async fn span_exporter(&self) -> GcloudObservabilityResult<SpanExporter> {
         let exporter = self
             .configure_exporter(SpanExporter::builder().with_tonic())
             .await?;
         Ok(exporter.build()?)
     }
 
-    pub async fn create_provider(&self) -> TraceExportResult<SdkTracerProvider> {
+    pub async fn create_provider(&self) -> GcloudObservabilityResult<SdkTracerProvider> {
         self.create_provider_from_builder(
             SdkTracerProvider::builder().with_resource(Resource::builder().build()),
         )
@@ -25,7 +25,7 @@ impl GcpOtlpExporterBuilder {
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,
-    ) -> TraceExportResult<SdkTracerProvider> {
+    ) -> GcloudObservabilityResult<SdkTracerProvider> {
         let exporter = self.span_exporter().await?;
         Ok(self
             .provider_resources()

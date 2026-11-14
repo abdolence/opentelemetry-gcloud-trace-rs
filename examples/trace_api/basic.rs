@@ -1,6 +1,6 @@
 use opentelemetry::trace::*;
 
-use opentelemetry_gcloud_trace::trace_api::*;
+use gcloud_observability::trace_api::*;
 
 pub fn config_env_var(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|e| format!("{}: {}", name, e))

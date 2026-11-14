@@ -1,5 +1,5 @@
 use super::GcpOtlpExporterBuilder;
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use opentelemetry_otlp::LogExporter;
 use opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor;
 use opentelemetry_sdk::logs::{BatchConfigBuilder, LoggerProviderBuilder, SdkLoggerProvider};
@@ -7,14 +7,14 @@ use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::Resource;
 
 impl GcpOtlpExporterBuilder {
-    pub async fn log_exporter(&self) -> TraceExportResult<LogExporter> {
+    pub async fn log_exporter(&self) -> GcloudObservabilityResult<LogExporter> {
         let exporter = self
             .configure_exporter(LogExporter::builder().with_tonic())
             .await?;
         Ok(exporter.build()?)
     }
 
-    pub async fn create_logger_provider(&self) -> TraceExportResult<SdkLoggerProvider> {
+    pub async fn create_logger_provider(&self) -> GcloudObservabilityResult<SdkLoggerProvider> {
         self.create_logger_provider_from_builder(
             SdkLoggerProvider::builder().with_resource(Resource::builder().build()),
         )
@@ -27,7 +27,7 @@ impl GcpOtlpExporterBuilder {
     pub async fn create_logger_provider_from_builder(
         &self,
         builder: LoggerProviderBuilder,
-    ) -> TraceExportResult<SdkLoggerProvider> {
+    ) -> GcloudObservabilityResult<SdkLoggerProvider> {
         let mut config = BatchConfigBuilder::default();
         if let Some(max_export_timeout) = self.max_export_timeout {
             config = config.with_max_export_timeout(max_export_timeout);

@@ -1,7 +1,7 @@
 #![cfg(feature = "logs")]
 
+use gcloud_observability::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry::trace::TracerProvider;
-use opentelemetry_gcloud_trace::logs::GcpCloudLoggingLayerBuilder;
 use opentelemetry_sdk::trace::{
     InMemorySpanExporter, Sampler, SdkTracerProvider, SimpleSpanProcessor,
 };

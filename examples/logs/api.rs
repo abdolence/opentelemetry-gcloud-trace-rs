@@ -1,5 +1,5 @@
-use opentelemetry_gcloud_trace::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
-use opentelemetry_gcloud_trace::trace_api::GcpCloudTraceExporterBuilder;
+use gcloud_observability::logs::{GcpCloudLoggingApiConfig, GcpCloudLoggingLayerBuilder};
+use gcloud_observability::trace_api::GcpCloudTraceExporterBuilder;
 use tracing::*;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::Registry;
@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let (log_layer, log_handle) = GcpCloudLoggingLayerBuilder::new(project_id)
         .with_cloud_logging_api(GcpCloudLoggingApiConfig::new(
-            "opentelemetry-gcloud-trace-example",
+            "gcloud-observability-example",
         ))
         .build_async()
         .await?;

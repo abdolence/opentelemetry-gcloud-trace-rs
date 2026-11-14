@@ -11,7 +11,9 @@ mod trace;
 pub use auth::GcpAuthInterceptor;
 
 use crate::common;
-use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
+use crate::errors::{
+    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
+};
 use gcloud_sdk::tonic::transport::Uri;
 use gcloud_sdk::GoogleAuthHeaders;
 use opentelemetry::KeyValue;
@@ -57,7 +59,7 @@ pub struct GcpOtlpExporterBuilder {
 }
 
 impl GcpOtlpExporterBuilder {
-    pub async fn for_default_project_id() -> TraceExportResult<Self> {
+    pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
         Ok(Self::new(common::detect_google_project_id().await?))
     }
 
@@ -65,7 +67,7 @@ impl GcpOtlpExporterBuilder {
     /// [`Self::auth_headers`] on the first call and cloned after it. All of them share one
     /// set of credentials and one refresh task, which ends once this builder and every
     /// exporter and interceptor built from it are dropped.
-    pub async fn auth_interceptor(&self) -> TraceExportResult<GcpAuthInterceptor> {
+    pub async fn auth_interceptor(&self) -> GcloudObservabilityResult<GcpAuthInterceptor> {
         self.shared_auth_interceptor
             .get_or_try_init(|| async {
                 match &self.auth_headers {
@@ -77,7 +79,7 @@ impl GcpOtlpExporterBuilder {
             .cloned()
     }
 
-    async fn configure_exporter<B>(&self, exporter: B) -> TraceExportResult<B>
+    async fn configure_exporter<B>(&self, exporter: B) -> GcloudObservabilityResult<B>
     where
         B: WithExportConfig + WithTonicConfig,
     {
@@ -87,7 +89,7 @@ impl GcpOtlpExporterBuilder {
             .ok()
             .and_then(|uri| uri.host().map(str::to_string))
             .ok_or_else(|| {
-                GcloudTraceError::SystemError(GcloudTraceSystemError::new(format!(
+                GcloudObservabilityError::SystemError(GcloudObservabilitySystemError::new(format!(
                     "The OTLP endpoint `{endpoint}` is not a URI with a host"
                 )))
             })?;

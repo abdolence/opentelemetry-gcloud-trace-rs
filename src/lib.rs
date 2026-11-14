@@ -26,7 +26,7 @@
 //! ```toml
 //! [dependencies]
 //! opentelemetry = { version = "*", features = ["rt-tokio"] }
-//! opentelemetry-gcloud-trace = "*"
+//! gcloud-observability = "*"
 //! ```
 //!
 //! ```ignore

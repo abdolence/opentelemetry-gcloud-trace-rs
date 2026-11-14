@@ -7,7 +7,7 @@ mod exporter;
 pub use exporter::GcpCloudTraceExporter;
 
 use crate::common;
-use crate::errors::{GcloudTraceError, TraceExportResult};
+use crate::errors::{GcloudObservabilityError, GcloudObservabilityResult};
 use opentelemetry_sdk::error::OTelSdkError;
 use opentelemetry_sdk::runtime;
 use opentelemetry_sdk::trace::span_processor_with_async_runtime::BatchSpanProcessor;
@@ -32,11 +32,11 @@ pub struct GcpCloudTraceExporterBuilder {
 }
 
 impl GcpCloudTraceExporterBuilder {
-    pub async fn for_default_project_id() -> TraceExportResult<Self> {
+    pub async fn for_default_project_id() -> GcloudObservabilityResult<Self> {
         Ok(Self::new(common::detect_google_project_id().await?))
     }
 
-    pub async fn create_provider(&self) -> Result<SdkTracerProvider, GcloudTraceError> {
+    pub async fn create_provider(&self) -> Result<SdkTracerProvider, GcloudObservabilityError> {
         self.create_provider_from_builder(SdkTracerProvider::builder())
             .await
     }
@@ -44,7 +44,7 @@ impl GcpCloudTraceExporterBuilder {
     pub async fn create_provider_from_builder(
         &self,
         builder: TracerProviderBuilder,
-    ) -> Result<SdkTracerProvider, GcloudTraceError> {
+    ) -> Result<SdkTracerProvider, GcloudObservabilityError> {
         let exporter = GcpCloudTraceExporter::new(
             &self.google_project_id,
             self.resource

@@ -1,6 +1,8 @@
 //! Helpers shared by the exporters and the logging layer.
 
-use crate::errors::{GcloudTraceError, GcloudTraceSystemError, TraceExportResult};
+use crate::errors::{
+    GcloudObservabilityError, GcloudObservabilityResult, GcloudObservabilitySystemError,
+};
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
 use opentelemetry::{trace::TracerProvider, InstrumentationScope};
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
@@ -14,11 +16,11 @@ use opentelemetry_sdk::{
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
 use std::time::Duration;
 
-pub(crate) async fn detect_google_project_id() -> TraceExportResult<String> {
+pub(crate) async fn detect_google_project_id() -> GcloudObservabilityResult<String> {
     gcloud_sdk::GoogleEnvironment::detect_google_project_id()
         .await
         .ok_or_else(|| {
-            GcloudTraceError::SystemError(GcloudTraceSystemError::new(
+            GcloudObservabilityError::SystemError(GcloudObservabilitySystemError::new(
                 "No Google Project ID detected. Please specify it explicitly using env variable: PROJECT_ID or define it as default project for your service accounts".to_string(),
             ))
         })
@@ -42,7 +44,7 @@ pub(crate) fn batch_span_processor(
 
 #[cfg(any(feature = "trace-api", feature = "otlp"))]
 pub(crate) fn tracer(provider: &SdkTracerProvider) -> Tracer {
-    let scope = InstrumentationScope::builder("opentelemetry-gcloud")
+    let scope = InstrumentationScope::builder("gcloud-observability")
         .with_version(env!("CARGO_PKG_VERSION"))
         .with_schema_url("https://opentelemetry.io/schemas/1.23.0")
         .build();

@@ -1,4 +1,4 @@
-use crate::errors::TraceExportResult;
+use crate::errors::GcloudObservabilityResult;
 use gcloud_sdk::google::devtools::cloudtrace::v2::{
     attribute_value as gcp_attribute_value, span as gspan, AttributeValue as GcpAttributeValue,
     BatchWriteSpansRequest, Span as GcpSpan, TruncatableString,
@@ -26,7 +26,7 @@ impl GcpCloudTraceExporterClient {
         google_project_id: &str,
         resource: Resource,
         export_span_events: bool,
-    ) -> TraceExportResult<Self> {
+    ) -> GcloudObservabilityResult<Self> {
         let client: GoogleApi<
             google::devtools::cloudtrace::v2::trace_service_client::TraceServiceClient<
                 GoogleAuthMiddleware,
@@ -49,7 +49,7 @@ impl GcpCloudTraceExporterClient {
         })
     }
 
-    pub async fn export_batch(&self, batch: Vec<SpanData>) -> TraceExportResult<()> {
+    pub async fn export_batch(&self, batch: Vec<SpanData>) -> GcloudObservabilityResult<()> {
         let batch_request = BatchWriteSpansRequest {
             name: format!("projects/{}", self.google_project_id),
             spans: batch
