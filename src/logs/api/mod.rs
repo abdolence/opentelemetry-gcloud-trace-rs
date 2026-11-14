@@ -40,7 +40,8 @@ pub struct GcpCloudLoggingApiConfig {
 }
 
 impl GcpCloudLoggingApiConfig {
-    /// Writes to `projects/{project}/logs/{log_id}`.
+    /// Writes to `projects/{project}/logs/{log_id}`, with `/` in `log_id` URL-encoded as
+    /// `%2F`, as Cloud Logging stores it.
     pub fn new(log_id: LogId) -> Self {
         Self {
             log_id,
@@ -89,6 +90,15 @@ impl GcpCloudLoggingApiConfig {
         self
     }
 
+    /// The `logName` of every entry, in which `[LOG_ID]` must be URL-encoded. `/` is the only
+    /// character of a [`LogId`] that is not URL-safe.
+    pub(crate) fn log_name(&self, google_project_id: &str) -> String {
+        format!(
+            "projects/{google_project_id}/logs/{}",
+            self.log_id.to_string().replace('/', "%2F")
+        )
+    }
+
     pub(crate) fn resource_or_default(&self, google_project_id: &str) -> MonitoredResource {
         self.resource.clone().unwrap_or_else(|| MonitoredResource {
             r#type: "global".to_string(),
@@ -124,5 +134,20 @@ impl LogEntrySink for GcloudLogEntrySink {
             .await
             .map(|_| ())
             .map_err(|status| status.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slash_of_a_log_id_is_url_encoded_in_the_log_name() {
+        let config = GcpCloudLoggingApiConfig::new(LogId::from_static("orders/checkout-v1.2_a"));
+
+        assert_eq!(
+            config.log_name("orders-prod"),
+            "projects/orders-prod/logs/orders%2Fcheckout-v1.2_a"
+        );
     }
 }

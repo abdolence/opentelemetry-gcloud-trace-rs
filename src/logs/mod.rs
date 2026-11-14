@@ -265,7 +265,7 @@ impl GcpCloudLoggingLayerBuilder<GcpCloudLoggingApiConfig> {
         common::validate_google_project_id(&self.google_project_id)?;
         let config = self.sink;
         let resource = config.resource_or_default(&self.google_project_id);
-        let log_name = format!("projects/{}/logs/{}", self.google_project_id, config.log_id);
+        let log_name = config.log_name(&self.google_project_id);
         let sink = std::sync::Arc::new(api::GcloudLogEntrySink::new().await?);
         let (api_sink, handle) = api::spawn(&config, log_name, resource, sink);
         Ok((
