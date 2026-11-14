@@ -162,6 +162,27 @@ fn error_event_is_reported_with_service_location_and_source_chain() {
 }
 
 #[test]
+fn source_chain_is_on_the_header_line_of_the_message() {
+    let buffer = SharedBuffer::default();
+    let lines = lines_from(reporting_builder(&buffer), &buffer, || {
+        let failure = checkout_failure();
+        tracing::error!(error = &failure as &dyn Error, "checkout failed");
+    });
+
+    let message = lines[0]["message"].as_str().expect("message is a string");
+    let header = message.lines().next().expect("message has a header line");
+    for part in [
+        "checkout failed",
+        "payment declined",
+        "gateway rejected the charge",
+        "card expired",
+    ] {
+        assert!(header.contains(part), "`{part}` is missing from `{header}`");
+    }
+    assert!(!message.contains("Caused by"));
+}
+
+#[test]
 fn error_message_carries_the_captured_backtrace_and_no_stack_trace_key() {
     let buffer = SharedBuffer::default();
     let lines = lines_from(reporting_builder(&buffer), &buffer, || {

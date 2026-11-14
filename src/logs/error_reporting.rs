@@ -88,12 +88,15 @@ impl ServiceContext {
             None => String::new(),
         };
         let exception_message = match error {
-            Some(chain) => chain.to_string(),
+            Some(chain) => chain.on_one_line(),
             None => event_message.clone(),
         };
         let stacktrace = capture_backtrace();
 
         // The trace goes in `message` only: `stack_trace` would hide it, and with it the header.
+        // The chain stays on the header line: Error Reporting reads a `Caused by:` line as the
+        // cause its group is keyed on, which put unrelated errors sharing a root cause in one
+        // group.
         let mut message = match error {
             Some(_) => format!("{event_message}: {exception_message}"),
             None => event_message,
@@ -194,6 +197,14 @@ impl ErrorChain {
                 .map(ToString::to_string)
                 .collect(),
         }
+    }
+
+    /// `outer: middle: root`.
+    fn on_one_line(&self) -> String {
+        std::iter::once(self.display.as_str())
+            .chain(self.causes.iter().map(String::as_str))
+            .collect::<Vec<_>>()
+            .join(": ")
     }
 }
 

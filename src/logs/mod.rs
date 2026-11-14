@@ -158,9 +158,10 @@ impl<W> GcpCloudLoggingLayerBuilder<W> {
     ///
     /// The entry gets `@type`, `serviceContext`, `context.reportLocation` from the event's
     /// code location, and `context.httpRequest` when `http_request.*` fields are present. Its
-    /// `message` is the event message, the error's `Display` and `source()` chain, then the
-    /// backtrace, which is captured only when `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE` enables
-    /// it. Without a backtrace Error Reporting groups by the message and the location.
+    /// `message` is the event message and the error's `Display` and `source()` chain on one
+    /// line, `message: outer: middle: root`, then the backtrace, which is captured only when
+    /// `RUST_BACKTRACE` or `RUST_LIB_BACKTRACE` enables it. Errors with the same first line
+    /// are one group in Error Reporting, wherever they were logged.
     ///
     /// On the OTLP sink the same keys go in the body, and the `exception.type`,
     /// `exception.message` and `exception.stacktrace` attributes are added. A `&dyn Error`
