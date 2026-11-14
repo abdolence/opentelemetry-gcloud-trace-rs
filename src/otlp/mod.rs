@@ -21,6 +21,7 @@ use opentelemetry_sdk::Resource;
 use rsb_derive::*;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::OnceCell;
 
 const TELEMETRY_API_ENDPOINT: &str = "https://telemetry.googleapis.com";
 
@@ -47,8 +48,11 @@ pub struct GcpOtlpExporterBuilder {
     /// log records when set.
     pub max_export_timeout: Option<Duration>,
     /// The credentials exports are authenticated with. Defaults to the Application Default
-    /// Credentials with the `cloud-platform` scope.
+    /// Credentials with the `cloud-platform` scope. Read by the first exporter or
+    /// [`Self::auth_interceptor`] call; every later one shares those credentials.
     pub auth_headers: Option<Arc<GoogleAuthHeaders>>,
+    #[default = "OnceCell::new()"]
+    shared_auth_interceptor: OnceCell<GcpAuthInterceptor>,
 }
 
 impl GcpOtlpExporterBuilder {
@@ -56,13 +60,20 @@ impl GcpOtlpExporterBuilder {
         Ok(Self::new(common::detect_google_project_id().await?))
     }
 
-    /// An interceptor over [`Self::auth_headers`], the one every exporter built here
-    /// authenticates with. Each call starts its own refresh task.
+    /// The interceptor every exporter built here authenticates with, created over
+    /// [`Self::auth_headers`] on the first call and cloned after it. All of them share one
+    /// set of credentials and one refresh task, which ends once this builder and every
+    /// exporter and interceptor built from it are dropped.
     pub async fn auth_interceptor(&self) -> TraceExportResult<GcpAuthInterceptor> {
-        match &self.auth_headers {
-            Some(auth_headers) => GcpAuthInterceptor::new(Arc::clone(auth_headers)).await,
-            None => GcpAuthInterceptor::from_adc().await,
-        }
+        self.shared_auth_interceptor
+            .get_or_try_init(|| async {
+                match &self.auth_headers {
+                    Some(auth_headers) => GcpAuthInterceptor::new(Arc::clone(auth_headers)).await,
+                    None => GcpAuthInterceptor::from_adc().await,
+                }
+            })
+            .await
+            .cloned()
     }
 
     async fn configure_exporter<B>(&self, exporter: B) -> TraceExportResult<B>
@@ -103,5 +114,24 @@ impl GcpOtlpExporterBuilder {
                 ))
                 .build(),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::otlp::testing::ScriptedAccessToken;
+
+    #[tokio::test]
+    async fn exporters_of_one_builder_share_one_refresh_task() {
+        let auth_headers = ScriptedAccessToken::new("first-token").auth_headers();
+        let builder = GcpOtlpExporterBuilder::new("orders-project".to_string())
+            .with_auth_headers(Arc::clone(&auth_headers));
+
+        let _spans = builder.auth_interceptor().await.unwrap();
+        let _logs = builder.auth_interceptor().await.unwrap();
+
+        // Held here, by the builder and by the one refresh task.
+        assert_eq!(Arc::strong_count(&auth_headers), 3);
     }
 }
