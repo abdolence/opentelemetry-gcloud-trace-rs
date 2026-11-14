@@ -13,6 +13,19 @@ use time::OffsetDateTime;
 use tracing::field::{Field, Visit};
 use tracing::{Event, Level};
 
+// Keys of the record that have a typed counterpart in each sink's entry; every other
+// key is user payload.
+pub(crate) const KEY_TIME: &str = "time";
+pub(crate) const KEY_SEVERITY: &str = "severity";
+pub(crate) const KEY_TRACE: &str = "logging.googleapis.com/trace";
+pub(crate) const KEY_SPAN_ID: &str = "logging.googleapis.com/spanId";
+pub(crate) const KEY_TRACE_SAMPLED: &str = "logging.googleapis.com/trace_sampled";
+pub(crate) const KEY_SOURCE_LOCATION: &str = "logging.googleapis.com/sourceLocation";
+pub(crate) const KEY_LABELS: &str = "logging.googleapis.com/labels";
+pub(crate) const KEY_INSERT_ID: &str = "logging.googleapis.com/insertId";
+pub(crate) const KEY_OPERATION: &str = "logging.googleapis.com/operation";
+pub(crate) const KEY_HTTP_REQUEST: &str = "httpRequest";
+
 /// LogSeverity enum names Cloud Logging recognises, used to match a
 /// `severity` event field case-insensitively before falling back to the
 /// level-based mapping.
@@ -167,9 +180,9 @@ pub(crate) fn build_log_record(
     event.record(&mut fields);
 
     let mut map = Map::new();
-    map.insert("time".to_string(), Value::from(now_rfc3339()));
+    map.insert(KEY_TIME.to_string(), Value::from(now_rfc3339()));
     map.insert(
-        "severity".to_string(),
+        KEY_SEVERITY.to_string(),
         Value::from(resolve_severity(
             metadata.level(),
             fields.severity_override.as_deref(),
@@ -194,7 +207,7 @@ pub(crate) fn build_log_record(
         }
         if !source_location.is_empty() {
             map.insert(
-                "logging.googleapis.com/sourceLocation".to_string(),
+                KEY_SOURCE_LOCATION.to_string(),
                 Value::Object(source_location),
             );
         }
@@ -202,21 +215,18 @@ pub(crate) fn build_log_record(
 
     if let Some(correlation) = correlation {
         map.insert(
-            "logging.googleapis.com/trace".to_string(),
+            KEY_TRACE.to_string(),
             Value::from(format!(
                 "projects/{project_id}/traces/{}",
                 correlation.trace_id
             )),
         );
         map.insert(
-            "logging.googleapis.com/spanId".to_string(),
+            KEY_SPAN_ID.to_string(),
             Value::from(correlation.span_id.to_string()),
         );
         if correlation.sampled {
-            map.insert(
-                "logging.googleapis.com/trace_sampled".to_string(),
-                Value::Bool(true),
-            );
+            map.insert(KEY_TRACE_SAMPLED.to_string(), Value::Bool(true));
         }
     }
 
@@ -226,24 +236,18 @@ pub(crate) fn build_log_record(
 
     if !fields.http_request.is_empty() {
         map.insert(
-            "httpRequest".to_string(),
+            KEY_HTTP_REQUEST.to_string(),
             Value::Object(fields.http_request),
         );
     }
     if !fields.labels.is_empty() {
-        map.insert(
-            "logging.googleapis.com/labels".to_string(),
-            Value::Object(fields.labels),
-        );
+        map.insert(KEY_LABELS.to_string(), Value::Object(fields.labels));
     }
     if !fields.operation.is_empty() {
-        map.insert(
-            "logging.googleapis.com/operation".to_string(),
-            Value::Object(fields.operation),
-        );
+        map.insert(KEY_OPERATION.to_string(), Value::Object(fields.operation));
     }
     if let Some(insert_id) = fields.insert_id {
-        map.insert("logging.googleapis.com/insertId".to_string(), insert_id);
+        map.insert(KEY_INSERT_ID.to_string(), insert_id);
     }
 
     map

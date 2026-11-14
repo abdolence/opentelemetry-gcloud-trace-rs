@@ -7,6 +7,10 @@
 //! rather than dropped: a malformed `latency` or an unrecognised `httpRequest`
 //! member should cost the reader a typed field, never the value itself.
 
+use crate::logs::format::{
+    KEY_HTTP_REQUEST, KEY_INSERT_ID, KEY_LABELS, KEY_OPERATION, KEY_SEVERITY, KEY_SOURCE_LOCATION,
+    KEY_SPAN_ID, KEY_TIME, KEY_TRACE, KEY_TRACE_SAMPLED,
+};
 use gcloud_sdk::google::logging::r#type::{HttpRequest, LogSeverity};
 use gcloud_sdk::google::logging::v2::{
     log_entry, LogEntry, LogEntryOperation, LogEntrySourceLocation,
@@ -16,17 +20,6 @@ use serde_json::{Map, Value};
 
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-
-const KEY_TIME: &str = "time";
-const KEY_SEVERITY: &str = "severity";
-const KEY_TRACE: &str = "logging.googleapis.com/trace";
-const KEY_SPAN_ID: &str = "logging.googleapis.com/spanId";
-const KEY_TRACE_SAMPLED: &str = "logging.googleapis.com/trace_sampled";
-const KEY_SOURCE_LOCATION: &str = "logging.googleapis.com/sourceLocation";
-const KEY_LABELS: &str = "logging.googleapis.com/labels";
-const KEY_INSERT_ID: &str = "logging.googleapis.com/insertId";
-const KEY_OPERATION: &str = "logging.googleapis.com/operation";
-const KEY_HTTP_REQUEST: &str = "httpRequest";
 
 /// Moves every key Cloud Logging gives a dedicated `LogEntry` field out of the
 /// record and leaves the rest as the entry's `json_payload`.
